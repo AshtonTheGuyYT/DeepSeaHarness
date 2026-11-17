@@ -267,6 +267,11 @@ export default function App() {
         const command = commandMatch[1].trim();
         if (command) commandProposals.push({ id: Date.now() + "-cmd-" + commandProposals.length, command });
       }
+      if (mode === "agent" && workspace && commandProposals.length === 0) {
+        const explicitCommand = prompt.match(/\b(?:run|execute)\s+((?:npm|npx|node|python|py|cargo|git|dotnet|where|dir|mkdir|type|echo)\b[^\r\n]*)/i);
+        const command = explicitCommand?.[1].trim().replace(/[.,;]+$/, "");
+        if (command) commandProposals.push({ id: Date.now() + "-cmd-explicit", command });
+      }
       const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\bfile\b|\.[a-zA-Z0-9]{1,12}\b/i.test(prompt);
       if (mode === "agent" && (workspace || allowFullAccess) && proposals.length === 0 && looksLikeFileRequest) {
         const explicitAbsolutePath = allowFullAccess ? prompt.match(/[A-Za-z]:[\\/][^\r\n"'<>|?*]*\.[a-zA-Z0-9]{1,12}/)?.[0]?.trim().replace(/[.,;:)]+$/, "") : undefined;
