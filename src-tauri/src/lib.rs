@@ -47,6 +47,11 @@ fn http_client() -> Result<reqwest::Client, String> {
 }
 
 #[tauri::command]
+fn provider_key_exists() -> bool {
+    credential_entry().and_then(|entry| entry.get_password().map(|_| entry)).is_ok()
+}
+
+#[tauri::command]
 fn save_provider_key(api_key: String) -> Result<(), String> {
     let key = api_key.trim();
     if key.is_empty() {
@@ -205,7 +210,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file,
-            canonicalize_workspace_child, save_provider_key, discover_provider_models, send_provider_message
+            canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message
         ])
         .run(tauri::generate_context!())
         .expect("error while running DeepSea Harness");
