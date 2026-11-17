@@ -15,7 +15,7 @@ DeepSea Harness is an open-source Windows desktop coding workspace built with Ta
 - Explicit Save changes and Revert controls
 - Provider URL and API key configuration
 - API keys stored through the Windows Credential Manager using the native credential store
-- Live model discovery from the configured provider's `/models` endpoint
+- Live model discovery from the configured provider's `/models` endpoint, including automatic refresh on startup
 - Free model detection when provider metadata reports zero prompt and completion pricing or the model ID uses the `:free` suffix
 - OpenAI-compatible non-streaming `/chat/completions` requests
 - Optional project file/tree context supplied to the model when project reading is enabled
