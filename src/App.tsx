@@ -296,6 +296,7 @@ export default function App() {
 
   const approveCommand = async (proposal: PendingCommand) => {
     if (!workspace || fileActionBusy) return;
+    if (!allowCommands) { setNotice("Enable workspace command execution in Settings → Permissions before approving commands."); return; }
     setFileActionBusy(proposal.id);
     try {
       const result = await invoke<CommandRun>("run_workspace_command", { command: proposal.command, workspace });
