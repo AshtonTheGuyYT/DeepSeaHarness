@@ -207,7 +207,7 @@ export default function App() {
         ...nextMessages
       ];
       const answer = await invoke<string>("send_provider_message", { endpoint, model, messages: providerMessages });
-      const filePattern = /\[\[DEEPSEA_FILE path="([^"]+)"\]\]([\s\S]*?)\[\[\/DEEPSEA_FILE\]\]/g;
+      const filePattern = new RegExp("\\[\\[DEEPSEA_FILE path=\"([^\"]+)\"\\]\\]([\\s\\S]*?)\\[\\[\\/DEEPSEA_FILE\\]\\]", "g");
       const proposals: PendingFile[] = [];
       let match: RegExpExecArray | null;
       while ((match = filePattern.exec(answer)) !== null) {
