@@ -2,29 +2,47 @@
 
 [![Windows CI](https://github.com/AshtonTheGuyYT/DeepSeaHarness/actions/workflows/ci.yml/badge.svg)](https://github.com/AshtonTheGuyYT/DeepSeaHarness/actions/workflows/ci.yml)
 
-DeepSea Harness is an open-source Windows desktop coding workspace being built around the official DeepSeek API. It uses Tauri 2, Rust, React, TypeScript, and Vite.
+DeepSea Harness is an open-source Windows desktop coding workspace built with Tauri 2, Rust, React, TypeScript, and Vite. It connects to providers that expose an OpenAI-compatible chat completions API.
 
-> Status: early development (0.1.0). The local project explorer and basic text editor are now implemented. DeepSeek streaming, secure credential storage, SQLite conversation history, AI-driven file changes, a full approval workflow, and terminal execution are not implemented yet.
+> Status: early development. The local project explorer, basic text editor, provider credential storage, live model discovery, and non-streaming AI chat are implemented. Streaming, SQLite conversation history, AI-proposed file edits, a complete approval workflow, and terminal execution are not implemented yet.
 
-## Current foundation
+## Current capabilities
 
-- Tauri 2 desktop application configuration for Windows MSI and NSIS bundles
-- React and TypeScript interface with a distinctive deep-ocean operations-deck design
-- First-launch welcome flow, workspace view, settings, and about page
+- Tauri 2 Windows desktop application
+- Deep-ocean operations-deck interface
 - Native folder picker and nested local project explorer
-- Rust filesystem commands with canonical-path checks and symlink exclusion
 - Basic UTF-8 text editor for existing files up to 1 MB
-- Explicit Save changes and Revert controls for user-edited files
-- Open-source contribution and security policy files
+- Explicit Save changes and Revert controls
+- Provider URL and API key configuration
+- API keys stored through the Windows Credential Manager using the native credential store
+- Live model discovery from the configured provider's `/models` endpoint
+- Free model detection when provider metadata reports zero prompt and completion pricing or the model ID uses the `:free` suffix
+- OpenAI-compatible non-streaming `/chat/completions` requests
+- Optional project file/tree context supplied to the model when project reading is enabled
+- Settings for project reading, approval preference, compact layout, and reduced motion
 
-The editor only writes a file after the user selects **Save changes**. It currently edits existing UTF-8 text files; it is not a syntax-highlighted editor and does not support binary files or creating new files. The chat composer intentionally does not send requests. The API key field is temporary, is not persisted, and should not be treated as secure storage.
+## Provider setup
 
-## Technology
+Open **Settings → AI provider**.
 
-- Tauri 2 and Rust for the native desktop shell and filesystem boundary
-- React, TypeScript, and Vite for the interface
-- SQLite persistence is planned, not yet integrated
-- Official DeepSeek API integration is planned, not yet integrated
+1. Enter your provider's API base URL. For OpenRouter, use its OpenAI-compatible API base URL from its official documentation. For DeepSeek, use its official API base URL.
+2. Paste your API key.
+3. Select **Save provider**.
+4. Select **Discover models**. DeepSea calls the provider's `/models` endpoint and retrieves the current catalog.
+5. If the provider exposes pricing metadata, DeepSea marks models with zero input and output pricing as free and automatically selects a detected free model.
+
+DeepSea does not contain a hardcoded model catalog. Providers that do not expose pricing metadata are shown with cost marked as unknown; DeepSea does not guess whether those models are free. A provider must expose an OpenAI-compatible `/models` endpoint and `/chat/completions` endpoint for discovery and chat to work. Provider-specific features outside that compatibility surface may not work.
+
+API credentials are stored in Windows Credential Manager and are not written to localStorage. The provider URL and selected model are stored locally in the app's browser storage. Provider requests are made by the Rust backend. HTTPS is required for remote providers; HTTP is allowed only for localhost development endpoints.
+
+## Current limitations
+
+- AI responses are currently non-streaming.
+- Conversation history is held in the active app session and is not yet stored in SQLite.
+- Agent mode can analyze and plan but cannot yet edit files or execute commands directly.
+- The editor supports existing UTF-8 text files up to 1 MB and does not yet provide syntax highlighting or file creation.
+- File changes require the user to save them in the editor; the full AI proposal and approval workflow is planned.
+- The provider must implement the OpenAI-compatible API surface described above.
 
 ## Development prerequisites
 
@@ -47,11 +65,7 @@ The Tauri configuration targets NSIS and MSI installers. A release build still n
 
 ## Security principles
 
-The native application, not the model, must enforce filesystem boundaries and tool permissions. Workspace file operations resolve paths against the selected root, reject paths outside it, and skip symbolic links during explorer traversal. File writes are limited to existing files and require an explicit user save action in the UI. These controls are an early foundation, not a complete sandbox or agent permission system. Never commit API keys or credentials.
-
-## DeepSeek API costs
-
-DeepSeek API access and pricing are separate from any DeepSeek consumer website subscription. API usage may incur separate charges under the provider's pricing and terms.
+The native application, not the model, must enforce filesystem boundaries and tool permissions. Workspace file operations resolve paths against the selected root, reject paths outside it, and skip symbolic links during explorer traversal. File writes are limited to existing files and require an explicit user save action in the UI. Provider credentials are stored in the Windows credential store and should never be committed to the repository. These controls are an early foundation, not a complete sandbox or agent permission system.
 
 ## License
 
