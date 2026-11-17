@@ -8,6 +8,7 @@ type Mode = "chat" | "agent";
 type WorkspaceEntry = { name: string; relative_path: string; is_dir: boolean };
 type ProviderModel = { id: string; cost: "free" | "paid" | "unknown"; free: boolean };
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type Conversation = { id: string; title: string; messages: ChatMessage[]; updatedAt: number };
 type PendingFile = { id: string; path: string; content: string };
 type SettingsSection = "provider" | "permissions" | "workspace" | "appearance";
 
@@ -30,7 +31,9 @@ export default function App() {
   const [providerBusy, setProviderBusy] = useState(false);
   const [providerStatus, setProviderStatus] = useState("Not connected");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("provider");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => { try { return JSON.parse(localStorage.getItem("deepsea-conversations") || "[]") as Conversation[]; } catch { return []; } });
+  const [activeConversation, setActiveConversation] = useState(() => localStorage.getItem("deepsea-active-conversation") || "");
+  const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const items = JSON.parse(localStorage.getItem("deepsea-conversations") || "[]") as Conversation[]; const active = localStorage.getItem("deepsea-active-conversation"); return items.find(item => item.id === active)?.messages || []; } catch { return []; } });
   const [chatBusy, setChatBusy] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [fileActionBusy, setFileActionBusy] = useState("");
@@ -46,6 +49,24 @@ export default function App() {
   const [clockTime, setClockTime] = useState(() => new Date());
   const [clock24, setClock24] = useState(localStorage.getItem("deepsea-clock-24h") === "true");
   const dirty = fileContent !== savedContent;
+
+  useEffect(() => {
+    localStorage.setItem("deepsea-conversations", JSON.stringify(conversations));
+    if (activeConversation) localStorage.setItem("deepsea-active-conversation", activeConversation);
+  }, [conversations, activeConversation]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const id = activeConversation || crypto.randomUUID();
+    if (!activeConversation) setActiveConversation(id);
+    setConversations(current => {
+      const existing = current.find(item => item.id === id);
+      const firstUser = messages.find(item => item.role === "user")?.content || "New conversation";
+      const title = existing?.title && existing.title !== "New conversation" ? existing.title : firstUser.slice(0, 38) + (firstUser.length > 38 ? "…" : "");
+      const next = { id, title, messages, updatedAt: Date.now() };
+      return [next, ...current.filter(item => item.id !== id)].slice(0, 100);
+    });
+  }, [messages, activeConversation]);
 
   useEffect(() => {
     const clockInterval = window.setInterval(() => setClockTime(new Date()), 1000);
@@ -279,12 +300,12 @@ export default function App() {
     <div className="app-body">
       {sidebar && <aside className="sidebar">
         <button className="workspace-switch" onClick={chooseWorkspace}><span className="switch-icon"><Code2 size={17}/></span><span><b>{workspace ? workspace.split(/[\\/]/).filter(Boolean).pop() : "No workspace"}</b><small>{workspace ? "Local project" : "Select a project"}</small></span><ChevronDown size={14}/></button>
-        <button className="new-chat" onClick={() => {setPage("workspace");setActiveFile("");setMessages([]);setDraft("");setNotice("New conversation started.");}}><Plus size={16}/> New conversation <kbd>⌘ K</kbd></button>
+        <button className="new-chat" onClick={() => {const id = crypto.randomUUID();setConversations(current => [{id,title:"New conversation",messages:[],updatedAt:Date.now()},...current]);setActiveConversation(id);setPage("workspace");setActiveFile("");setMessages([]);setPendingFiles([]);setDraft("");setNotice("");}}><Plus size={16}/> New chat <kbd>Ctrl K</kbd></button>
         <label className="nav-label">WORKSPACE</label>
         <button className={page === "workspace" && !activeFile ? "nav-item active" : "nav-item"} onClick={() => {setPage("workspace");setActiveFile("");}}><LayoutDashboard size={16}/> Overview</button>
         <button className="nav-item" onClick={chooseWorkspace}><Folder size={16}/> Open project</button>
         <label className="nav-label spaced">YOUR SPACE</label>
-        <div className="history-empty"><History size={17}/>Your conversations will appear here.</div>
+        <div className="conversation-list">{conversations.map(item => <div className={activeConversation === item.id ? "conversation-item selected" : "conversation-item"} key={item.id}><button onClick={() => {setActiveConversation(item.id);setMessages(item.messages);setPendingFiles([]);setPage("workspace");setActiveFile("");setNotice("");}} onDoubleClick={() => {const title = window.prompt("Rename conversation", item.title);if(title?.trim()) setConversations(current => current.map(entry => entry.id === item.id ? {...entry,title:title.trim()} : entry));}} title="Open conversation · double-click to rename"><History size={13}/><span>{item.title}</span></button><button className="conversation-delete" aria-label="Delete conversation" onClick={() => {setConversations(current => current.filter(entry => entry.id !== item.id));if(activeConversation === item.id){setActiveConversation("");setMessages([]);}}}><X size={12}/></button></div>)}</div>
         <div className="sidebar-bottom">
           <div className="agent-status"><div><Activity size={14}/> Agent status <span>Idle</span></div><p>Ready when you are. Choose a project to get started.</p></div>
           <button className={page === "settings" ? "nav-item active" : "nav-item"} onClick={() => setPage("settings")}><Settings2 size={16}/> Settings</button>
