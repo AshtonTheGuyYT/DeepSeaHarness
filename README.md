@@ -4,7 +4,7 @@
 
 DeepSea Harness is an open-source Windows desktop coding workspace built with Tauri 2, Rust, React, TypeScript, and Vite. It connects to providers that expose an OpenAI-compatible chat completions API.
 
-> Status: early development. The local project explorer, basic text editor, provider credential storage, live model discovery, and non-streaming AI chat are implemented. Streaming, SQLite conversation history, AI-proposed file edits, a complete approval workflow, and terminal execution are not implemented yet.
+> Status: early development. The local project explorer, basic text editor, provider credential storage, live model discovery, non-streaming AI chat, and approval-based AI file creation are implemented. Streaming, SQLite conversation history, AI edits to existing files, and terminal execution are not implemented yet.
 
 ## Current capabilities
 
@@ -19,6 +19,8 @@ DeepSea Harness is an open-source Windows desktop coding workspace built with Ta
 - Free model detection when provider metadata reports zero prompt and completion pricing or the model ID uses the `:free` suffix
 - OpenAI-compatible non-streaming `/chat/completions` requests
 - Optional project file/tree context supplied to the model when project reading is enabled
+- AI-generated new-file proposals with a preview and explicit approval before creation
+- Safe creation of new files and missing parent folders inside the selected workspace, without overwriting existing items
 - Settings for project reading, approval preference, compact layout, and reduced motion
 
 ## Provider setup
@@ -65,7 +67,7 @@ The Tauri configuration targets NSIS and MSI installers. A release build still n
 
 ## Security principles
 
-The native application, not the model, must enforce filesystem boundaries and tool permissions. Workspace file operations resolve paths against the selected root, reject paths outside it, and skip symbolic links during explorer traversal. File writes are limited to existing files and require an explicit user save action in the UI. Provider credentials are stored in the Windows credential store and should never be committed to the repository. These controls are an early foundation, not a complete sandbox or agent permission system.
+The native application, not the model, must enforce filesystem boundaries and tool permissions. Workspace file operations resolve paths against the selected root, reject paths outside it, and skip symbolic links during explorer traversal. AI-created files require an explicit approval click, use create-new semantics so existing files are never overwritten, and reject symbolic links in destination directories. Provider credentials are stored in the Windows credential store and should never be committed to the repository. These controls are an early foundation, not a complete sandbox or agent permission system.
 
 ## License
 
