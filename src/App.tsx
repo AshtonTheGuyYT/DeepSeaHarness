@@ -5,7 +5,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 type Page = "workspace" | "settings" | "about";
 type Mode = "chat" | "agent";
-type WorkspaceEntry = { name: string; relative_path: string; is_dir: boolean };\ntype ProviderModel = { id: string; cost: "free" | "paid" | "unknown"; free: boolean };\ntype ChatMessage = { role: "user" | "assistant"; content: string };\ntype SettingsSection = "provider" | "permissions" | "workspace" | "appearance";
+type WorkspaceEntry = { name: string; relative_path: string; is_dir: boolean };
+type ProviderModel = { id: string; cost: "free" | "paid" | "unknown"; free: boolean };
+type ChatMessage = { role: "user" | "assistant"; content: string };
+type SettingsSection = "provider" | "permissions" | "workspace" | "appearance";
 
 export default function App() {
   const [page, setPage] = useState<Page>("workspace");
@@ -21,13 +24,30 @@ export default function App() {
   const [activeFile, setActiveFile] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
-  const [apiKey, setApiKey] = useState("");\n  const [providerModels, setProviderModels] = useState<ProviderModel[]>([]);\n  const [providerBusy, setProviderBusy] = useState(false);\n  const [providerStatus, setProviderStatus] = useState("Not connected");\n  const [settingsSection, setSettingsSection] = useState<SettingsSection>("provider");\n  const [messages, setMessages] = useState<ChatMessage[]>([]);\n  const [chatBusy, setChatBusy] = useState(false);\n  const [allowFileReads, setAllowFileReads] = useState(localStorage.getItem("deepsea-allow-file-reads") !== "false");\n  const [requireApproval, setRequireApproval] = useState(localStorage.getItem("deepsea-require-approval") !== "false");\n  const [compactMode, setCompactMode] = useState(localStorage.getItem("deepsea-compact") === "true");\n  const [reduceMotion, setReduceMotion] = useState(localStorage.getItem("deepsea-reduce-motion") === "true");
+  const [apiKey, setApiKey] = useState("");
+  const [providerModels, setProviderModels] = useState<ProviderModel[]>([]);
+  const [providerBusy, setProviderBusy] = useState(false);
+  const [providerStatus, setProviderStatus] = useState("Not connected");
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("provider");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [allowFileReads, setAllowFileReads] = useState(localStorage.getItem("deepsea-allow-file-reads") !== "false");
+  const [requireApproval, setRequireApproval] = useState(localStorage.getItem("deepsea-require-approval") !== "false");
+  const [compactMode, setCompactMode] = useState(localStorage.getItem("deepsea-compact") === "true");
+  const [reduceMotion, setReduceMotion] = useState(localStorage.getItem("deepsea-reduce-motion") === "true");
   const [model, setModel] = useState("deepseek-chat");
   const [endpoint, setEndpoint] = useState("https://api.deepseek.com");
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("Connect your DeepSeek API key in Settings to start a conversation.");
   const [saving, setSaving] = useState(false);
-  const dirty = fileContent !== savedContent;\n\n  useEffect(() => {\n    const savedEndpoint = localStorage.getItem("deepsea-provider-endpoint");\n    const savedModel = localStorage.getItem("deepsea-provider-model");\n    if (savedEndpoint) setEndpoint(savedEndpoint);\n    if (savedModel) setModel(savedModel);\n  }, []);
+  const dirty = fileContent !== savedContent;
+
+  useEffect(() => {
+    const savedEndpoint = localStorage.getItem("deepsea-provider-endpoint");
+    const savedModel = localStorage.getItem("deepsea-provider-model");
+    if (savedEndpoint) setEndpoint(savedEndpoint);
+    if (savedModel) setModel(savedModel);
+  }, []);
 
   const refreshWorkspace = async (path: string) => {
     const [rootEntries, nestedEntries] = await Promise.all([
@@ -149,7 +169,8 @@ export default function App() {
     try {
       const providerMessages = [
         { role: "system", content: mode === "agent" ? "You are DeepSea, a careful software development agent. Help plan code changes, explain risks, and provide complete replacement files when asked. You cannot directly modify files or run commands in this version. Never claim that you changed the user's project." : "You are DeepSea, a helpful software development assistant. Explain code clearly and do not claim to modify the project." },
-        ...(allowFileReads && workspace ? [{ role: "system", content: `The user has mounted a local project with ${tree.length} visible entries: ${tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ")}.${activeFile ? ` The currently open file is ${activeFile}. Its current editor content follows:\n${fileContent}` : ""}` }] : []),
+        ...(allowFileReads && workspace ? [{ role: "system", content: `The user has mounted a local project with ${tree.length} visible entries: ${tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ")}.${activeFile ? ` The currently open file is ${activeFile}. Its current editor content follows:
+${fileContent}` : ""}` }] : []),
         ...nextMessages
       ];
       const answer = await invoke<string>("send_provider_message", { endpoint, model, messages: providerMessages });
