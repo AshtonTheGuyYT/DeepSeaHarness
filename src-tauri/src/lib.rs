@@ -47,8 +47,6 @@ fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder().timeout(Duration::from_secs(45)).build().map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-
 #[derive(Serialize)]
 struct CommandResult {
     command: String,
@@ -101,6 +99,7 @@ async fn run_workspace_command(command: String, workspace: String) -> Result<Com
     Ok(result)
 }
 
+#[tauri::command]
 fn provider_key_exists() -> bool {
     credential_entry().and_then(|entry| entry.get_password().map(|_| entry).map_err(|error| error.to_string())).is_ok()
 }
