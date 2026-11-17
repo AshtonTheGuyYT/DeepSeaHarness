@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, ArrowRight, ArrowUpRight, Bot, Check, ChevronDown, CircleHelp, Code2, FileCode2, Folder, FolderOpen, Github, History, KeyRound, LayoutDashboard, Menu, Moon, PanelRightClose, Plus, Search, Send, Settings2, Shield, Sparkles, Waves, X, Save, RotateCcw } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type Page = "workspace" | "settings" | "about";
 type Mode = "chat" | "agent";
@@ -53,6 +54,8 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [clockTime, setClockTime] = useState(() => new Date());
   const [clock24, setClock24] = useState(localStorage.getItem("deepsea-clock-24h") === "true");
+  const [openAppMenu, setOpenAppMenu] = useState<"application" | "edit" | null>(null);
+  const [maximized, setMaximized] = useState(false);
   const dirty = fileContent !== savedContent;
 
   useEffect(() => {
@@ -93,6 +96,101 @@ export default function App() {
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  const startNewConversation = () => {
+    const id = crypto.randomUUID();
+    setConversations(current => [{ id, title: "New conversation", messages: [], updatedAt: Date.now() }, ...current]);
+    setActiveConversation(id);
+    setPage("workspace");
+    setActiveFile("");
+    setMessages([]);
+    setPendingFiles([]);
+    setPendingCommands([]);
+    setCommandRuns([]);
+    setDraft("");
+    setNotice("");
+    setOpenAppMenu(null);
+  };
+
+  const runEditAction = async (action: string) => {
+    setOpenAppMenu(null);
+    if (action === "paste") {
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        const active = document.activeElement;
+        if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+          const start = active.selectionStart ?? active.value.length;
+          const end = active.selectionEnd ?? start;
+          active.setRangeText(clipboardText, start, end, "end");
+          active.dispatchEvent(new Event("input", { bubbles: true }));
+          if (active.classList.contains("code-editor")) setFileContent(active.value);
+          if (active.closest(".composer")) setDraft(active.value);
+        } else {
+          document.execCommand("paste");
+        }
+      } catch {
+        setNotice("Clipboard access was unavailable. Focus a text field and use Ctrl + V instead.");
+      }
+      return;
+    }
+    const commands: Record<string, string> = { undo: "undo", redo: "redo", cut: "cut", copy: "copy", delete: "delete", selectAll: "selectAll" };
+    const active = document.activeElement;
+    if (action === "delete" && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement)) {
+      const start = active.selectionStart ?? 0;
+      const end = active.selectionEnd ?? start;
+      if (start !== end) {
+        active.setRangeText("", start, end, "end");
+        active.dispatchEvent(new Event("input", { bubbles: true }));
+        if (active.classList.contains("code-editor")) setFileContent(active.value);
+        if (active.closest(".composer")) setDraft(active.value);
+      }
+      return;
+    }
+    document.execCommand(commands[action] || action);
+  };
+
+  const runApplicationAction = async (action: string) => {
+    setOpenAppMenu(null);
+    if (action === "about") {
+      setPage("about");
+      return;
+    }
+    if (action === "commands") {
+      setPage("settings");
+      setSettingsSection("permissions");
+      setNotice("Manage workspace command execution and filesystem permissions here.");
+      return;
+    }
+    if (action === "updates") {
+      setNotice("Update checking is not configured yet. You can follow DeepSea Harness releases on GitHub.");
+      return;
+    }
+    if (action === "exit") {
+      try { await getCurrentWindow().close(); } catch (error) { setNotice("Unable to close DeepSea: " + String(error)); }
+    }
+  };
+
+  useEffect(() => {
+    const handleMenuOutside = (event: MouseEvent) => {
+      if (!(event.target as HTMLElement).closest(".app-menu-group")) setOpenAppMenu(null);
+    };
+    document.addEventListener("mousedown", handleMenuOutside);
+    return () => document.removeEventListener("mousedown", handleMenuOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleEditShortcuts = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      const actions: Record<string, string> = { z: event.shiftKey ? "redo" : "undo", y: "redo", x: "cut", c: "copy", v: "paste", a: "selectAll" };
+      const action = actions[key];
+      if (!action) return;
+      event.preventDefault();
+      void runEditAction(action);
+    };
+    window.addEventListener("keydown", handleEditShortcuts);
+    return () => window.removeEventListener("keydown", handleEditShortcuts);
   }, []);
 
   useEffect(() => {
@@ -353,11 +451,45 @@ export default function App() {
 
   const messageComposer = (<div className="command-composer"><div className="composer-label"><span><i/> TRANSMIT A TASK</span><small>{mode === "agent" ? "AGENT CHANNEL" : "CHAT CHANNEL"}</small></div><div className="composer"><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {if(event.key === "Enter" && !event.shiftKey){event.preventDefault();sendMessage();}}} placeholder="Describe what you want to build, investigate, or understand..." rows={2}/><div className="composer-bottom"><details className="custom-dropdown mode-dropdown"><summary className={mode === "agent" ? "mode active" : "mode"}><Bot size={14}/> {mode === "agent" ? "Agent mode" : "Chat mode"} <ChevronDown size={12}/></summary><div className="dropdown-menu"><button onClick={event => {setMode("agent");event.currentTarget.closest("details")?.removeAttribute("open");}}>Agent mode <small>Plan and act with approvals</small></button><button onClick={event => {setMode("chat");event.currentTarget.closest("details")?.removeAttribute("open");}}>Chat mode <small>Discuss without editing files</small></button></div></details><small>{chatBusy ? "WAITING FOR PROVIDER" : "SHIFT + ENTER FOR NEW LINE"}</small><button className="send" disabled={!draft.trim() || chatBusy} onClick={sendMessage} aria-label="Send message"><Send size={15}/></button></div></div><div className="composer-caption"><Shield size={11}/> Actions remain under your control <i>·</i> API usage billed separately by DeepSeek</div></div>);
 
-  return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); }}>
-    <header className="titlebar">
-      <div className="title-brand"><span className="brand-mark"><Waves size={17}/></span><span>deepsea <i>harness</i></span><small>EARLY ACCESS</small></div>
-      <div className="title-center"><span/> Local workspace <button className="local-clock" onClick={() => {const next = !clock24;setClock24(next);localStorage.setItem("deepsea-clock-24h",String(next));}} title="Click to switch between 12-hour and 24-hour time">{clockTime.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:!clock24})}</button></div>
-      <div className="window-controls"><span>−</span><span>□</span><span>×</span></div>
+  return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); if (!(event.target as HTMLElement).closest(".app-menu-group")) setOpenAppMenu(null); }}>
+    <header className="app-menu-bar">
+      <div className="app-menu-leading app-menu-group">
+        <button className="app-menu-icon" onClick={() => setSidebar(current => !current)} title={sidebar ? "Hide sidebar" : "Show sidebar"} aria-label="Toggle sidebar"><Menu size={16}/></button>
+        <button className="app-menu-icon" onClick={startNewConversation} title="New chat" aria-label="New chat"><Plus size={16}/></button>
+      </div>
+      <div className="app-menu-group">
+        <button className={openAppMenu === "application" ? "app-menu-trigger active" : "app-menu-trigger"} onClick={() => setOpenAppMenu(current => current === "application" ? null : "application")}>Application</button>
+        {openAppMenu === "application" && <div className="app-menu-popover">
+          <button onClick={() => void runApplicationAction("about")}>About DeepSea Harness</button>
+          <div className="app-menu-separator"/>
+          <button onClick={() => void runApplicationAction("updates")}>Check for Updates...</button>
+          <button onClick={() => void runApplicationAction("commands")}>Manage dsh Command...</button>
+          <div className="app-menu-separator"/>
+          <button onClick={() => void runApplicationAction("exit")}>Exit</button>
+        </div>}
+      </div>
+      <div className="app-menu-group">
+        <button className={openAppMenu === "edit" ? "app-menu-trigger active" : "app-menu-trigger"} onClick={() => setOpenAppMenu(current => current === "edit" ? null : "edit")}>Edit</button>
+        {openAppMenu === "edit" && <div className="app-menu-popover edit-menu-popover">
+          <button onClick={() => void runEditAction("undo")}>Undo <kbd>Ctrl+Z</kbd></button>
+          <button onClick={() => void runEditAction("redo")}>Redo <kbd>Ctrl+Y</kbd></button>
+          <div className="app-menu-separator"/>
+          <button onClick={() => void runEditAction("cut")}>Cut <kbd>Ctrl+X</kbd></button>
+          <button onClick={() => void runEditAction("copy")}>Copy <kbd>Ctrl+C</kbd></button>
+          <button onClick={() => void runEditAction("paste")}>Paste <kbd>Ctrl+V</kbd></button>
+          <button onClick={() => void runEditAction("delete")}>Delete</button>
+          <div className="app-menu-separator"/>
+          <button onClick={() => void runEditAction("selectAll")}>Select All <kbd>Ctrl+A</kbd></button>
+        </div>}
+      </div>
+      <div className="app-menu-drag" data-tauri-drag-region>
+        <span data-tauri-drag-region>DeepSea Harness</span>
+      </div>
+      <div className="app-window-controls">
+        <button onClick={() => void getCurrentWindow().minimize()} title="Minimize" aria-label="Minimize">−</button>
+        <button onClick={async () => {const win=getCurrentWindow();await win.toggleMaximize();setMaximized(await win.isMaximized());}} title={maximized ? "Restore" : "Maximize"} aria-label={maximized ? "Restore window" : "Maximize window"}>{maximized ? "❐" : "□"}</button>
+        <button className="window-close" onClick={() => void getCurrentWindow().close()} title="Close" aria-label="Close">×</button>
+      </div>
     </header>
     <div className="app-body">
       {sidebar && <aside className="sidebar">
