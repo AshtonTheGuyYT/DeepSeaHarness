@@ -40,7 +40,14 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("Connect an API provider in Settings to start a conversation.");
   const [saving, setSaving] = useState(false);
+  const [clockTime, setClockTime] = useState(() => new Date());
+  const [clock24, setClock24] = useState(localStorage.getItem("deepsea-clock-24h") === "true");
   const dirty = fileContent !== savedContent;
+
+  useEffect(() => {
+    const clockInterval = window.setInterval(() => setClockTime(new Date()), 1000);
+    return () => window.clearInterval(clockInterval);
+  }, []);
 
   useEffect(() => {
     const savedEndpoint = localStorage.getItem("deepsea-provider-endpoint") || "https://api.deepseek.com";
@@ -211,7 +218,7 @@ ${fileContent}` : ""}` }] : []),
   return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); }}>
     <header className="titlebar">
       <div className="title-brand"><span className="brand-mark"><Waves size={17}/></span><span>deepsea <i>harness</i></span><small>EARLY ACCESS</small></div>
-      <div className="title-center"><span/> Local workspace</div>
+      <div className="title-center"><span/> Local workspace <button className="local-clock" onClick={() => {const next = !clock24;setClock24(next);localStorage.setItem("deepsea-clock-24h",String(next));}} title="Click to switch between 12-hour and 24-hour time">{clockTime.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:!clock24})}</button></div>
       <div className="window-controls"><span>−</span><span>□</span><span>×</span></div>
     </header>
     <div className="app-body">
@@ -237,7 +244,7 @@ ${fileContent}` : ""}` }] : []),
           <div className="editor-safety"><Shield size={13}/> Local file editor · Changes are only written when you select Save changes.</div>
           <textarea className="code-editor" spellCheck={false} value={fileContent} onChange={event => setFileContent(event.target.value)} />
           <div className="editor-status"><span>{dirty ? "MODIFIED · NOT SAVED" : "ALL CHANGES SAVED"}</span><span>{fileContent.split("\n").length} LINES · UTF-8</span></div>
-        </section> : <section className="workspace-view command-view">
+        </section> : <section className={`workspace-view command-view ${messages.length > 0 ? "has-conversation" : ""}`}>
           <div className="command-heading"><div><div className="eyebrow"><span className="eyebrow-pulse"/> DEEPSEA / OPERATIONS DECK</div><h1>{workspace ? workspace.split(/[\\/]/).filter(Boolean).pop() : "Ready to dive in?"}</h1><p>{workspace ? "Workspace mounted locally. Your project context is ready." : "A focused environment for exploring, planning, and building software."}</p></div><div className="deck-controls"><div className="depth-readout"><span>DEPTH</span><b>LOCAL</b></div><details className="custom-dropdown"><summary className="model-chip"><span/> {model} <ChevronDown size={13}/></summary><div className="dropdown-menu">{providerModels.length ? providerModels.map(item => <button key={item.id} onClick={event => {setModel(item.id);localStorage.setItem("deepsea-provider-model",item.id);event.currentTarget.closest("details")?.removeAttribute("open");}}>{item.id} <small>{item.cost === "free" ? "FREE" : item.cost === "paid" ? "PAID" : "COST UNKNOWN"}</small></button>) : <button onClick={() => {setPage("settings");setSettingsSection("provider");}}>Discover provider models <small>Configure your API connection</small></button>}</div></details></div></div>
           <div className="deck-rule"><span>MISSION CONTROL</span><i/><small>{workspace ? "PROJECT CONNECTED" : "AWAITING PROJECT"}</small></div>
           <div className="mission-grid">
