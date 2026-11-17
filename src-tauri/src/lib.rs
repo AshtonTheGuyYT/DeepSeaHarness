@@ -99,6 +99,30 @@ async fn run_workspace_command(command: String, workspace: String) -> Result<Com
     Ok(result)
 }
 
+#[derive(Serialize)]
+struct ReleaseInfo {
+    tag_name: String,
+    html_url: String,
+}
+
+#[tauri::command]
+async fn check_for_updates() -> Result<ReleaseInfo, String> {
+    let response = http_client()?
+        .get("https://api.github.com/repos/AshtonTheGuyYT/DeepSeaHarness/releases/latest")
+        .header(reqwest::header::USER_AGENT, "DeepSeaHarness")
+        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| format!("Unable to contact GitHub: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("GitHub release check returned HTTP {}. There may not be a published release yet.", response.status()));
+    }
+    let release: Value = response.json().await.map_err(|error| format!("GitHub returned an invalid release response: {error}"))?;
+    let tag_name = release.get("tag_name").and_then(Value::as_str).ok_or_else(|| "The latest GitHub release did not include a version tag.".to_string())?;
+    let html_url = release.get("html_url").and_then(Value::as_str).ok_or_else(|| "The latest GitHub release did not include a release page.".to_string())?;
+    Ok(ReleaseInfo { tag_name: tag_name.to_string(), html_url: html_url.to_string() })
+}
+
 #[tauri::command]
 fn provider_key_exists() -> bool {
     credential_entry().and_then(|entry| entry.get_password().map(|_| entry).map_err(|error| error.to_string())).is_ok()
@@ -366,7 +390,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file, create_workspace_file, create_file_at_path,
-            canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message, run_workspace_command
+            canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message, run_workspace_command, check_for_updates
         ])
         .run(tauri::generate_context!())
         .expect("error while running DeepSea Harness");
