@@ -47,6 +47,7 @@ export default function App() {
     const savedModel = localStorage.getItem("deepsea-provider-model");
     if (savedEndpoint) setEndpoint(savedEndpoint);
     if (savedModel) setModel(savedModel);
+    invoke<boolean>("provider_key_exists").then(exists => setProviderStatus(exists ? "API key stored securely" : "Not connected")).catch(() => setProviderStatus("Credential store unavailable"));
   }, []);
 
   const refreshWorkspace = async (path: string) => {
