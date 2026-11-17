@@ -28,8 +28,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
-    "icon": [],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
     "shortDescription": "A focused AI coding workspace powered by DeepSeek",
     "category": "DeveloperTool"
   }
