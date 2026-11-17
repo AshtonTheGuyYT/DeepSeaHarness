@@ -67,3 +67,44 @@
 @keyframes sonar-rotate{to{transform:rotate(360deg)}}
 @media(max-width:1050px){.mission-grid{grid-template-columns:minmax(0,1fr) minmax(175px,.75fr)}.primary-mission{grid-template-columns:105px minmax(0,1fr);padding:14px}.sonar-graphic{width:105px;height:105px}.sonar-core{inset:39px}.sonar-ring{inset:18px}.ring-two{inset:36px}.mission-copy h2{font-size:17px}}
 @media(max-width:850px){.mission-grid{grid-template-columns:1fr}.tools-card{grid-column:auto;grid-template-columns:1fr}.primary-mission{min-height:220px}.telemetry-card{min-height:190px}.command-heading{align-items:flex-start;flex-direction:column}.deck-controls{align-self:flex-end}}
+
+.command-view{overflow:hidden;min-height:0;padding-top:20px;padding-bottom:12px}
+.command-heading{padding-top:0;padding-bottom:15px}
+.mission-grid{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) minmax(94px,.48fr)}
+.primary-mission,.telemetry-card{min-height:0}
+.primary-mission{padding:12px 15px}
+.telemetry-card{padding:13px}
+.telemetry-main{margin:42px 0 13px}
+.tools-card{min-height:0;padding-top:39px}
+.command-composer{flex:none;margin-top:11px}
+.command-composer .composer-caption{margin-top:5px}
+.custom-dropdown{position:relative}
+.custom-dropdown>summary{list-style:none;cursor:pointer}
+.custom-dropdown>summary::-webkit-details-marker{display:none}
+.custom-dropdown[open]>summary{border-color:#57c6d879}
+.dropdown-menu{position:absolute;z-index:20;right:0;top:calc(100% + 7px);width:205px;padding:5px;border:1px solid #4c81944d;border-radius:9px;background:#102638;box-shadow:0 14px 40px #0008;display:flex;flex-direction:column;gap:3px}
+.dropdown-menu button{width:100%;min-height:39px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:7px 9px;border:0;border-radius:6px;background:transparent;color:#d6e5ec;text-align:left;font-size:10px}
+.dropdown-menu button:hover{background:#4e9aaa24}
+.dropdown-menu button small{font-size:8px;color:#7895a7}
+.mode-dropdown .dropdown-menu{left:0;right:auto;bottom:calc(100% + 7px);top:auto}
+.editor-view{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 20px 12px;gap:10px;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,#12465a18,transparent 55%)}
+.editor-toolbar{height:40px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#102334}
+.editor-toolbar>div{display:flex;align-items:center;gap:9px;min-width:0}
+.editor-toolbar>div:first-child{color:#85cbd4;font-size:10px}
+.editor-toolbar>div:first-child span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c6d8e2}
+.editor-toolbar>div:first-child i{font-style:normal;font-size:7px;letter-spacing:1px;color:#e4bd7a}
+.editor-toolbar .secondary,.editor-toolbar .primary{height:28px;font-size:9px}
+.editor-toolbar button:disabled{opacity:.35;cursor:not-allowed}
+.editor-safety{flex:none;display:flex;align-items:center;gap:7px;color:#81a5ad;font-size:9px;padding:3px 2px}
+.editor-safety svg{color:#70c5b1}
+.code-editor{flex:1;min-height:0;width:100%;resize:none;padding:17px 19px;border:1px solid #6ba8b42a;border-radius:8px;outline:0;background:#081723;color:#c8dce5;font:12px/1.7 Consolas,'Cascadia Code',monospace;tab-size:2;white-space:pre;overflow:auto}
+.code-editor:focus{border-color:#57c6d866;box-shadow:0 0 0 2px #57c6d812}
+.editor-status{height:20px;flex:none;display:flex;justify-content:space-between;align-items:center;color:#6f929f;font-size:8px;letter-spacing:1px}
+.file-list{flex:1;min-height:0;overflow:auto}
+.file-entry{width:100%;height:27px;display:flex;align-items:center;gap:7px;padding:0 8px;border:0;border-radius:5px;background:transparent;color:#91a8b8;text-align:left;font-size:9px}
+.file-entry span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-entry svg{flex:none;color:#76aebc}
+.file-entry:hover,.file-entry.selected{background:#3e91a21f;color:#c9e4e9}
+.file-entry.selected{box-shadow:inset 2px 0 #5fc4cc}
+@media(max-height:760px){.command-view{padding-top:13px;padding-bottom:8px}.command-heading{padding-bottom:10px}.command-heading h1{font-size:29px;margin:8px 0 5px}.primary-mission{grid-template-columns:minmax(90px,.7fr) minmax(140px,1.3fr)}.sonar-graphic{width:112px;height:112px}.sonar-core{inset:41px}.sonar-ring{inset:19px}.ring-two{inset:38px}.telemetry-main{margin:35px 0 9px}.command-composer{margin-top:8px}.command-composer .composer textarea{min-height:31px}.command-composer .composer-caption{margin-top:3px}}
+@media(max-width:850px){.command-view{overflow:auto}.mission-grid{flex:none;grid-template-rows:auto}.primary-mission,.telemetry-card{min-height:190px}.editor-toolbar{height:auto;min-height:40px;flex-wrap:wrap;padding:7px}.editor-toolbar>div:last-child{margin-left:auto}}
