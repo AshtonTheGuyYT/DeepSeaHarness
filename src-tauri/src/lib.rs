@@ -75,7 +75,7 @@ async fn discover_provider_models(endpoint: String) -> Result<Vec<ProviderModel>
         let pricing = item.get("pricing");
         let prompt = pricing.and_then(|value| value.get("prompt")).and_then(|value| value.as_str().or_else(|| value.as_number().map(|_| ""))).and_then(|value| value.parse::<f64>().ok());
         let completion = pricing.and_then(|value| value.get("completion")).and_then(|value| value.as_str().or_else(|| value.as_number().map(|_| ""))).and_then(|value| value.parse::<f64>().ok());
-        let free = id.to_lowercase().ends_with(":free") || id.to_lowercase().contains("free") || matches!((prompt, completion), (Some(a), Some(b)) if a == 0.0 && b == 0.0);
+        let free = id.to_lowercase().ends_with(":free") || matches!((prompt, completion), (Some(a), Some(b)) if a == 0.0 && b == 0.0);
         let cost = if free { "free" } else if prompt.is_some() && completion.is_some() { "paid" } else { "unknown" };
         Some(ProviderModel { id, cost: cost.to_string(), free })
     }).collect::<Vec<_>>();
