@@ -35,7 +35,6 @@ export default function App() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [fileActionBusy, setFileActionBusy] = useState("");
   const [allowFileReads, setAllowFileReads] = useState(localStorage.getItem("deepsea-allow-file-reads") !== "false");
-  const [requireApproval, setRequireApproval] = useState(true);
   const [allowFullAccess, setAllowFullAccess] = useState(localStorage.getItem("deepsea-full-filesystem-access") === "true");
   const [compactMode, setCompactMode] = useState(localStorage.getItem("deepsea-compact") === "true");
   const [reduceMotion, setReduceMotion] = useState(localStorage.getItem("deepsea-reduce-motion") === "true");
