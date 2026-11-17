@@ -163,7 +163,13 @@ export default function App() {
       return;
     }
     if (action === "updates") {
-      setNotice("Update checking is not configured yet. You can follow DeepSea Harness releases on GitHub.");
+      setNotice("Checking GitHub for the latest DeepSea Harness release...");
+      try {
+        const release = await invoke<{ tag_name: string; html_url: string }>("check_for_updates");
+        setNotice("Latest published release: " + release.tag_name + ". Release page: " + release.html_url);
+      } catch (error) {
+        setNotice("Update check failed: " + String(error));
+      }
       return;
     }
     if (action === "exit") {
