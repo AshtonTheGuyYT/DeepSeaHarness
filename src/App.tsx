@@ -489,7 +489,8 @@ export default function App() {
         </div>}
       </div>
       <div className="app-menu-drag" data-tauri-drag-region>
-        <span data-tauri-drag-region>DeepSea Harness</span>
+        <span data-tauri-drag-region><i/> Local workspace</span>
+        <button className="local-clock" onClick={() => {const next = !clock24;setClock24(next);localStorage.setItem("deepsea-clock-24h",String(next));}} title="Click to switch between 12-hour and 24-hour time">{clockTime.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:!clock24})}</button>
       </div>
       <div className="app-window-controls">
         <button onClick={() => void getCurrentWindow().minimize()} title="Minimize" aria-label="Minimize">−</button>
