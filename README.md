@@ -4,7 +4,7 @@
 
 DeepSea Harness is an open-source Windows desktop coding workspace built with Tauri 2, Rust, React, TypeScript, and Vite. It connects to providers that expose an OpenAI-compatible chat completions API.
 
-> Status: early development. The local project explorer, basic text editor, provider credential storage, live model discovery, non-streaming AI chat, and approval-based AI file creation are implemented. Streaming, SQLite conversation history, AI edits to existing files, and terminal execution are not implemented yet.
+> Status: early development. The local project explorer, basic text editor, provider credential storage, live model discovery, non-streaming AI chat, and approval-based AI file creation are implemented. Streaming, SQLite-backed history, AI edits to existing files, and Claude Code integration are not implemented yet. Conversation history currently persists locally in the app's WebView storage.
 
 ## Current capabilities
 
@@ -19,10 +19,16 @@ DeepSea Harness is an open-source Windows desktop coding workspace built with Ta
 - Free model detection when provider metadata reports zero prompt and completion pricing or the model ID uses the `:free` suffix
 - OpenAI-compatible non-streaming `/chat/completions` requests
 - Optional project file/tree context supplied to the model when project reading is enabled
+- Persistent local conversation history with create, select, rename, and delete controls
 - AI-generated new-file proposals with a preview and explicit approval before creation
+- Approval-gated workspace command execution for a limited set of developer tools, with captured output
 - Optional expanded C: drive destination access for AI-created files, with protected system/application folders blocked
 - Safe creation of new files and missing parent folders inside the selected workspace, without overwriting existing items
-- Settings for project reading, approval preference, compact layout, and reduced motion
+- Settings for project reading, expanded C: drive file creation, workspace command permission, compact layout, and reduced motion
+
+## Claude Code
+
+Claude Code is not currently bundled or connected. DeepSea's provider API integration works independently. An optional Claude Code CLI adapter can be considered later for users who already have the official CLI installed and authenticated; DeepSea will not install it or reuse its credentials silently.
 
 ## Provider setup
 
