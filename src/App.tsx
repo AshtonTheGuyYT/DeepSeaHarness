@@ -87,10 +87,78 @@ export default function App() {
     setSetup(false);
   };
 
-  const sendMessage = () => {
-    if (!draft.trim()) return;
-    setNotice("DeepSeek is not connected yet. Your message was not sent. Configure a provider in Settings.");
+  const saveProvider = async () => {
+    setProviderBusy(true);
+    try {
+      if (apiKey.trim()) await invoke("save_provider_key", { apiKey: apiKey.trim() });
+      localStorage.setItem("deepsea-provider-endpoint", endpoint.trim());
+      localStorage.setItem("deepsea-provider-model", model);
+      setApiKey("");
+      setProviderStatus("Provider settings saved");
+      setNotice("Provider settings saved. Discover models to check availability and pricing.");
+    } catch (error) {
+      setProviderStatus("Save failed");
+      setNotice(String(error));
+    } finally {
+      setProviderBusy(false);
+    }
+  };
+
+  const discoverModels = async () => {
+    setProviderBusy(true);
+    try {
+      if (apiKey.trim()) await invoke("save_provider_key", { apiKey: apiKey.trim() });
+      const found = await invoke<ProviderModel[]>("discover_provider_models", { endpoint });
+      setProviderModels(found);
+      const freeModel = found.find(item => item.free);
+      if (freeModel) setModel(freeModel.id);
+      else if (found.length && !found.some(item => item.id === model)) setModel(found[0].id);
+      localStorage.setItem("deepsea-provider-endpoint", endpoint.trim());
+      if (apiKey.trim()) setApiKey("");
+      setProviderStatus(found.some(item => item.free) ? `${found.length} models found · free model detected` : `${found.length} models found · no confirmed free model`);
+      setNotice(found.length ? `Discovered ${found.length} models from your provider.` : "The provider returned no models.");
+    } catch (error) {
+      setProviderStatus("Connection failed");
+      setNotice(String(error));
+    } finally {
+      setProviderBusy(false);
+    }
+  };
+
+  const clearProviderKey = async () => {
+    setProviderBusy(true);
+    try {
+      await invoke("save_provider_key", { apiKey: "" });
+      setProviderStatus("Saved API key cleared");
+      setNotice("Saved API key cleared from Windows Credential Manager.");
+    } catch (error) {
+      setNotice(String(error));
+    } finally {
+      setProviderBusy(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    const prompt = draft.trim();
+    if (!prompt || chatBusy) return;
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: prompt }];
+    setMessages(nextMessages);
     setDraft("");
+    setChatBusy(true);
+    setNotice("");
+    try {
+      const providerMessages = [
+        { role: "system", content: mode === "agent" ? "You are DeepSea, a careful software development agent. Help plan code changes, explain risks, and provide complete replacement files when asked. You cannot directly modify files or run commands in this version. Never claim that you changed the user's project." : "You are DeepSea, a helpful software development assistant. Explain code clearly and do not claim to modify the project." },
+        ...(allowFileReads && workspace ? [{ role: "system", content: `The user has mounted a local project with ${tree.length} visible entries: ${tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ")}.${activeFile ? ` The currently open file is ${activeFile}. Its current editor content follows:\n${fileContent}` : ""}` }] : []),
+        ...nextMessages
+      ];
+      const answer = await invoke<string>("send_provider_message", { endpoint, model, messages: providerMessages });
+      setMessages([...nextMessages, { role: "assistant", content: answer }]);
+    } catch (error) {
+      setMessages([...nextMessages, { role: "assistant", content: `Provider error: ${String(error)}` }]);
+    } finally {
+      setChatBusy(false);
+    }
   };
 
   const visibleTree = useMemo(() => tree.filter(entry => {
