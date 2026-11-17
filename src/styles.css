@@ -108,3 +108,8 @@
 .file-entry.selected{box-shadow:inset 2px 0 #5fc4cc}
 @media(max-height:760px){.command-view{padding-top:13px;padding-bottom:8px}.command-heading{padding-bottom:10px}.command-heading h1{font-size:29px;margin:8px 0 5px}.primary-mission{grid-template-columns:minmax(90px,.7fr) minmax(140px,1.3fr)}.sonar-graphic{width:112px;height:112px}.sonar-core{inset:41px}.sonar-ring{inset:19px}.ring-two{inset:38px}.telemetry-main{margin:35px 0 9px}.command-composer{margin-top:8px}.command-composer .composer textarea{min-height:31px}.command-composer .composer-caption{margin-top:3px}}
 @media(max-width:850px){.command-view{overflow:auto}.mission-grid{flex:none;grid-template-rows:auto}.primary-mission,.telemetry-card{min-height:190px}.editor-toolbar{height:auto;min-height:40px;flex-wrap:wrap;padding:7px}.editor-toolbar>div:last-child{margin-left:auto}}
+
+.settings-model-dropdown{width:100%}
+.settings-model-trigger{height:36px;width:100%;padding:0 10px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line2);border-radius:7px;background:#0b1b2a;color:#dce7ee;font-size:10px;list-style:none;cursor:pointer}
+.settings-model-trigger::-webkit-details-marker{display:none}
+.settings-model-dropdown .dropdown-menu{left:0;right:0;top:calc(100% + 5px);width:100%}
