@@ -346,3 +346,10 @@
 .app-window-controls button:hover{background:#353535}
 .app-window-controls button.window-close:hover{background:#c42b1c;color:#fff}
 @media(max-width:600px){.app-menu-drag span{display:none}.app-window-controls button{width:36px}.app-menu-trigger{padding:0 7px}}
+
+
+.app-menu-drag{gap:10px}
+.app-menu-drag span{display:flex;align-items:center;gap:8px}
+.app-menu-drag span i{width:6px;height:6px;display:inline-block;border-radius:50%;background:#58c9a5;box-shadow:0 0 0 3px #58c9a51b}
+.app-menu-drag .local-clock{pointer-events:auto;min-width:65px;padding:4px 8px;border:1px solid #3a4248;border-radius:6px;background:#22282d;color:#d2d8dd;font-size:10px}
+.app-menu-drag .local-clock:hover{background:#30383e}
