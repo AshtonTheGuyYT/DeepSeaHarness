@@ -189,6 +189,42 @@ fn read_workspace_file(path: String, relative_path: String) -> Result<String, St
 }
 
 #[tauri::command]
+fn create_workspace_file(path: String, relative_path: String, content: String) -> Result<String, String> {
+    let root = workspace_root(&path)?;
+    let relative = Path::new(&relative_path);
+    if relative.as_os_str().is_empty() || relative.is_absolute() || relative.components().any(|part| !matches!(part, std::path::Component::Normal(_))) {
+        return Err("Use a relative file path inside the selected workspace.".to_string());
+    }
+    if content.len() > 1_048_576 {
+        return Err("The proposed file exceeds the 1 MB creation limit.".to_string());
+    }
+    let mut parent = root.clone();
+    let components = relative.components().collect::<Vec<_>>();
+    for component in components.iter().take(components.len().saturating_sub(1)) {
+        parent.push(component.as_os_str());
+        match fs::symlink_metadata(&parent) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => return Err("The file path contains an unsafe or non-directory component.".to_string()),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => fs::create_dir(&parent).map_err(|create_error| format!("Unable to create parent folder: {create_error}"))?,
+            Err(error) => return Err(format!("Unable to inspect target folder: {error}")),
+        }
+    }
+    let file_name = components.last().ok_or_else(|| "A file name is required.".to_string())?;
+    let file_path = parent.join(file_name.as_os_str());
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    use std::io::Write;
+    let mut file = options.open(&file_path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists { "A file or folder with that name already exists. Nothing was overwritten.".to_string() } else { format!("Unable to create file: {error}") }
+    })?;
+    file.write_all(content.as_bytes()).map_err(|error| {
+        let _ = fs::remove_file(&file_path);
+        format!("Unable to write the new file: {error}")
+    })?;
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn write_workspace_file(path: String, relative_path: String, content: String) -> Result<(), String> {
     let root = workspace_root(&path)?;
     let file = safe_child(&root, &relative_path)?;
@@ -209,7 +245,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file,
+            list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file, create_workspace_file,
             canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message
         ])
         .run(tauri::generate_context!())
