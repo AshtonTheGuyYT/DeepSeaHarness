@@ -185,8 +185,8 @@ ${fileContent}` : ""}` }] : []),
   const visibleTree = useMemo(() => tree.filter(entry => {
     const parts = entry.relative_path.split("/");
     if (parts.length === 1) return true;
-    const parent = parts.slice(0, -1).slice(0, -1);
-    return parent.every((_, index) => expanded.includes(parts.slice(0, index + 1).join("/")));
+    const ancestors = parts.slice(0, -1);
+    return ancestors.every((_, index) => expanded.includes(parts.slice(0, index + 1).join("/")));
   }), [tree, expanded]);
 
   return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); }}>
