@@ -227,7 +227,7 @@ export default function App() {
             { role: "user", content: "Create the complete contents for the file " + requestedName + ". Return only its contents." }
           ];
           const generated = await invoke<string>("send_provider_message", { endpoint, model, messages: contentPrompt });
-          const cleanContent = generated.replace(/^\s*[a-zA-Z0-9_-]*\s*\n?/, "").replace(/\n?\s*$/, "").trim();
+          const cleanContent = generated.trim();
           if (cleanContent) proposals.push({ id: Date.now() + "-fallback", path: targetPath, content: cleanContent });
         }
       }
