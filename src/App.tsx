@@ -251,7 +251,7 @@ export default function App() {
       const createdPath = await invoke<string>("create_file_at_path", { targetPath: proposal.path, content: proposal.content, allowFullAccess, workspace: workspace || null });
       if (workspace) await refreshWorkspace(workspace);
       setPendingFiles(current => current.filter(item => item.id !== proposal.id));
-      setNotice("Created " + proposal.path + " in your workspace.");
+      setNotice("Created file: " + createdPath);
       setMessages(current => [...current, { role: "assistant", content: "File created successfully: " + createdPath }]);
     } catch (error) {
       setNotice(String(error));
