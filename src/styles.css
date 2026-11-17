@@ -325,3 +325,24 @@
   .command-view>.chat-empty-state{min-height:0}
   .command-view>.command-composer{padding-top:6px}
 }
+
+
+.app-menu-bar{height:39px;min-height:39px;flex:none;display:flex;align-items:center;gap:5px;padding:0 0 0 10px;background:linear-gradient(180deg,#1b1b1b,#151515);border-bottom:1px solid #303030;color:#dedede;position:relative;z-index:30;user-select:none}
+.app-menu-leading{display:flex;align-items:center;gap:3px;margin-right:7px}
+.app-menu-icon{width:29px;height:28px;display:grid;place-items:center;border:1px solid transparent;border-radius:6px;background:transparent;color:#c5cbd0}
+.app-menu-icon:hover,.app-menu-trigger:hover,.app-menu-trigger.active{background:#343434;color:#fff}
+.app-menu-group{position:relative;display:flex;align-items:center;height:100%}
+.app-menu-trigger{height:27px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:#d1d5d9;font:500 13px 'DM Sans',sans-serif}
+.app-menu-popover{position:absolute;top:34px;left:0;z-index:80;width:218px;padding:7px 0;background:#202020;border:1px solid #343434;border-radius:10px;box-shadow:0 12px 32px #0009;overflow:hidden}
+.app-menu-popover button{width:100%;height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;border:0;background:transparent;color:#ededed;text-align:left;font:400 12px 'DM Sans',sans-serif;white-space:nowrap}
+.app-menu-popover button:hover{background:#343434;color:#fff}
+.app-menu-popover kbd{margin-left:22px;color:#b8bdc2;font:10px 'DM Sans',sans-serif}
+.app-menu-separator{height:1px;margin:6px 0;background:#414141}
+.edit-menu-popover{width:224px}
+.app-menu-drag{height:100%;min-width:30px;flex:1;display:flex;align-items:center;justify-content:center;color:#70777d;font-size:10px;letter-spacing:.35px;cursor:default}
+.app-menu-drag span{pointer-events:none}
+.app-window-controls{height:100%;display:flex;align-items:stretch;flex:none}
+.app-window-controls button{width:45px;height:100%;display:grid;place-items:center;border:0;border-radius:0;background:transparent;color:#d5d5d5;font:16px 'Segoe UI',sans-serif}
+.app-window-controls button:hover{background:#353535}
+.app-window-controls button.window-close:hover{background:#c42b1c;color:#fff}
+@media(max-width:600px){.app-menu-drag span{display:none}.app-window-controls button{width:36px}.app-menu-trigger{padding:0 7px}}
