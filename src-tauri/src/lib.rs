@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::process::Command;
 
 #[derive(Serialize)]
 struct WorkspaceEntry {
@@ -47,6 +48,56 @@ fn http_client() -> Result<reqwest::Client, String> {
 }
 
 #[tauri::command]
+
+#[derive(Serialize)]
+struct CommandResult {
+    command: String,
+    success: bool,
+    exit_code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+#[tauri::command]
+async fn run_workspace_command(command: String, workspace: String) -> Result<CommandResult, String> {
+    let root = workspace_root(&workspace)?;
+    let trimmed = command.trim();
+    if trimmed.is_empty() || trimmed.len() > 2000 {
+        return Err("Enter a command under 2,000 characters.".to_string());
+    }
+    if trimmed.chars().any(|character| matches!(character, '\n' | '\r' | '&' | '|' | '<' | '>' | '^' | '%' | '!')) {
+        return Err("Command chaining, redirection, and shell expansion are disabled. Run one approved command at a time.".to_string());
+    }
+    let executable = trimmed.split_whitespace().next().unwrap_or("").trim_matches('"').to_ascii_lowercase();
+    let allowed = ["npm", "npx", "node", "python", "py", "cargo", "git", "dotnet", "where", "dir", "mkdir", "type", "echo"];
+    if !allowed.contains(&executable.as_str()) {
+        return Err("This command is not in DeepSea's approved command set. Supported tools include npm, node, Python, Cargo, Git, and basic workspace commands.".to_string());
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    let blocked = ["format c:", "del /s", "del /q", "rmdir /s", "rd /s", "shutdown", "reg delete", "diskpart", "cipher /w", "takeown", "icacls", "powershell", "pwsh", "cmd.exe", "start-process", "invoke-expression"];
+    if blocked.iter().any(|pattern| lower.contains(pattern)) {
+        return Err("This command is blocked because it can modify system-wide files or bypass the workspace command restrictions.".to_string());
+    }
+    let command_for_run = trimmed.to_string();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let output = Command::new("cmd.exe")
+            .args(["/D", "/S", "/C", &command_for_run])
+            .current_dir(root)
+            .output()
+            .map_err(|error| format!("Unable to start command: {error}"))?;
+        let stdout = String::from_utf8_lossy(&output.stdout).chars().take(24000).collect::<String>();
+        let stderr = String::from_utf8_lossy(&output.stderr).chars().take(12000).collect::<String>();
+        Ok::<CommandResult, String>(CommandResult {
+            command: command_for_run,
+            success: output.status.success(),
+            exit_code: output.status.code(),
+            stdout,
+            stderr,
+        })
+    }).await.map_err(|error| format!("Command task failed: {error}"))??;
+    Ok(result)
+}
+
 fn provider_key_exists() -> bool {
     credential_entry().and_then(|entry| entry.get_password().map(|_| entry).map_err(|error| error.to_string())).is_ok()
 }
@@ -313,7 +364,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file, create_workspace_file, create_file_at_path,
-            canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message
+            canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message, run_workspace_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running DeepSea Harness");
