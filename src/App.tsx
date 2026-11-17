@@ -8,6 +8,7 @@ type Mode = "chat" | "agent";
 type WorkspaceEntry = { name: string; relative_path: string; is_dir: boolean };
 type ProviderModel = { id: string; cost: "free" | "paid" | "unknown"; free: boolean };
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type PendingFile = { id: string; path: string; content: string };
 type SettingsSection = "provider" | "permissions" | "workspace" | "appearance";
 
 export default function App() {
@@ -31,6 +32,8 @@ export default function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("provider");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatBusy, setChatBusy] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [fileActionBusy, setFileActionBusy] = useState("");
   const [allowFileReads, setAllowFileReads] = useState(localStorage.getItem("deepsea-allow-file-reads") !== "false");
   const [requireApproval, setRequireApproval] = useState(localStorage.getItem("deepsea-require-approval") !== "false");
   const [compactMode, setCompactMode] = useState(localStorage.getItem("deepsea-compact") === "true");
@@ -193,19 +196,52 @@ export default function App() {
     setChatBusy(true);
     setNotice("");
     try {
+      const agentInstructions = "You are DeepSea, a careful software development agent. Help users build and modify software. You can prepare new files for approval. When the user asks you to create a file and a workspace is mounted, output each complete file using this exact format, with no markdown fence around the markers:\n[[DEEPSEA_FILE path=\"relative/path/from/workspace\"]]\ncomplete file contents here\n[[/DEEPSEA_FILE]]\nUse one block per file. Use only relative paths inside the mounted workspace. Never use absolute paths or parent-directory traversal, and never claim a file was created before approval. Outside these file blocks, briefly explain what you prepared. The mounted workspace root is: " + (workspace || "NONE - ask the user to open a folder first") + ". If no workspace is mounted, ask the user to select the destination folder in the Project Explorer first. You cannot execute terminal commands in this version.";
       const providerMessages = [
-        { role: "system", content: mode === "agent" ? "You are DeepSea, a careful software development agent. Help plan code changes, explain risks, and provide complete replacement files when asked. You cannot directly modify files or run commands in this version. Never claim that you changed the user's project." : "You are DeepSea, a helpful software development assistant. Explain code clearly and do not claim to modify the project." },
-        ...(allowFileReads && workspace ? [{ role: "system", content: `The user has mounted a local project with ${tree.length} visible entries: ${tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ")}.${activeFile ? ` The currently open file is ${activeFile}. Its current editor content follows:
-${fileContent}` : ""}` }] : []),
+        { role: "system", content: mode === "agent" ? agentInstructions : "You are DeepSea, a helpful software development assistant. Explain code clearly. Do not prepare filesystem actions in chat mode." },
+        ...(allowFileReads && workspace ? [{ role: "system", content: "The user has mounted a local project with " + tree.length + " visible entries: " + tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ") + "." + (activeFile ? " The currently open file is " + activeFile + ". Its current editor content follows:\n" + fileContent : "") }] : []),
         ...nextMessages
       ];
       const answer = await invoke<string>("send_provider_message", { endpoint, model, messages: providerMessages });
-      setMessages([...nextMessages, { role: "assistant", content: answer }]);
+      const filePattern = /\[\[DEEPSEA_FILE path="([^"]+)"\]\]([\s\S]*?)\[\[\/DEEPSEA_FILE\]\]/g;
+      const proposals: PendingFile[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = filePattern.exec(answer)) !== null) {
+        proposals.push({ id: Date.now() + "-" + proposals.length + "-" + Math.random().toString(36).slice(2, 8), path: match[1].trim(), content: match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "") });
+      }
+      const cleanAnswer = answer.replace(filePattern, "").trim();
+      if (proposals.length && mode === "agent" && workspace) {
+        setPendingFiles(current => [...current, ...proposals]);
+        setMessages([...nextMessages, { role: "assistant", content: cleanAnswer || "I've prepared the file. Review it below and approve it to save it into your workspace." }]);
+      } else {
+        setMessages([...nextMessages, { role: "assistant", content: answer }]);
+      }
     } catch (error) {
-      setMessages([...nextMessages, { role: "assistant", content: `Provider error: ${String(error)}` }]);
+      setMessages([...nextMessages, { role: "assistant", content: "Provider error: " + String(error) }]);
     } finally {
       setChatBusy(false);
     }
+  };
+
+  const approveFile = async (proposal: PendingFile) => {
+    if (!workspace || fileActionBusy) return;
+    setFileActionBusy(proposal.id);
+    try {
+      const createdPath = await invoke<string>("create_workspace_file", { path: workspace, relativePath: proposal.path, content: proposal.content });
+      await refreshWorkspace(workspace);
+      setPendingFiles(current => current.filter(item => item.id !== proposal.id));
+      setNotice("Created " + proposal.path + " in your workspace.");
+      setMessages(current => [...current, { role: "assistant", content: "File created successfully: " + createdPath }]);
+    } catch (error) {
+      setNotice(String(error));
+    } finally {
+      setFileActionBusy("");
+    }
+  };
+
+  const rejectFile = (proposal: PendingFile) => {
+    setPendingFiles(current => current.filter(item => item.id !== proposal.id));
+    setNotice("Discarded proposed file: " + proposal.path);
   };
 
   const visibleTree = useMemo(() => tree.filter(entry => {
@@ -252,7 +288,7 @@ ${fileContent}` : ""}` }] : []),
             <article className="mission-card telemetry-card"><div className="card-topline"><span className="card-index">02 / SYSTEM TELEMETRY</span><Activity size={14}/></div><div className="telemetry-main"><div className="telemetry-value">{workspace ? files.length.toString().padStart(2,"0") : "--"}</div><div><b>ROOT ENTRIES</b><small>{workspace ? "Items detected in project root" : "No project mounted"}</small></div></div><div className="telemetry-bars">{Array.from({length:20},(_,index)=><i key={index}/>)}</div><div className="telemetry-foot"><span>WORKSPACE LINK</span><b>{workspace ? "ESTABLISHED" : "STANDBY"}</b></div><div className="telemetry-foot"><span>AGENT STATE</span><b>AWAITING INPUT</b></div></article>
             <article className="mission-card tools-card"><div className="card-topline"><span className="card-index">03 / QUICK DEPLOY</span><span className="tool-count">03 TOOLS</span></div><button className="tool-row" onClick={() => setDraft("Analyze the structure and explain how this codebase works.")}><span className="tool-icon"><Search size={16}/></span><span><b>Reconnaissance</b><small>Map the codebase and its patterns</small></span><ArrowUpRight size={15}/></button><button className="tool-row" onClick={() => setDraft("Help me plan a new feature. Identify the files and steps involved.")}><span className="tool-icon"><Sparkles size={16}/></span><span><b>Feature planning</b><small>Turn an idea into a clear implementation plan</small></span><ArrowUpRight size={15}/></button><button className="tool-row" onClick={() => setDraft("Help me investigate this bug and identify its cause.")}><span className="tool-icon"><Code2 size={16}/></span><span><b>Signal tracing</b><small>Investigate an issue and find its cause</small></span><ArrowUpRight size={15}/></button></article>
           </div>
-          {messages.length > 0 && <div className="chat-transcript">{messages.map((message,index) => <article className={message.role === "user" ? "chat-message user-message" : "chat-message assistant-message"} key={index}><span>{message.role === "user" ? "YOU" : "DEEPSEA"}</span><p>{message.content}</p></article>)}{chatBusy && <div className="chat-thinking"><span/><span/><span/> Contacting provider...</div>}</div>}<div className="command-composer"><div className="composer-label"><span><i/> TRANSMIT A TASK</span><small>{mode === "agent" ? "AGENT CHANNEL" : "CHAT CHANNEL"}</small></div><div className="composer"><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {if(event.key === "Enter" && !event.shiftKey){event.preventDefault();sendMessage();}}} placeholder="Describe what you want to build, investigate, or understand..." rows={2}/><div className="composer-bottom"><details className="custom-dropdown mode-dropdown"><summary className={mode === "agent" ? "mode active" : "mode"}><Bot size={14}/> {mode === "agent" ? "Agent mode" : "Chat mode"} <ChevronDown size={12}/></summary><div className="dropdown-menu"><button onClick={event => {setMode("agent");event.currentTarget.closest("details")?.removeAttribute("open");}}>Agent mode <small>Plan and act with approvals</small></button><button onClick={event => {setMode("chat");event.currentTarget.closest("details")?.removeAttribute("open");}}>Chat mode <small>Discuss without editing files</small></button></div></details><small>{chatBusy ? "WAITING FOR PROVIDER" : "SHIFT + ENTER FOR NEW LINE"}</small><button className="send" disabled={!draft.trim() || chatBusy} onClick={sendMessage} aria-label="Send message"><Send size={15}/></button></div></div><div className="composer-caption"><Shield size={11}/> Actions remain under your control <i>·</i> API usage billed separately by DeepSeek</div></div>
+          {(messages.length > 0 || pendingFiles.length > 0) && <div className="chat-transcript">{messages.map((message,index) => <article className={message.role === "user" ? "chat-message user-message" : "chat-message assistant-message"} key={index}><span>{message.role === "user" ? "YOU" : "DEEPSEA"}</span><p>{message.content}</p></article>)}{pendingFiles.map(proposal => <article className="file-proposal" key={proposal.id}><div className="file-proposal-head"><div><span>FILE PROPOSAL</span><b>{proposal.path}</b></div><small>AWAITING APPROVAL</small></div><pre>{proposal.content}</pre><div className="file-proposal-actions"><button className="secondary" disabled={!!fileActionBusy} onClick={() => rejectFile(proposal)}>Discard</button><button className="primary" disabled={!!fileActionBusy} onClick={() => approveFile(proposal)}>{fileActionBusy === proposal.id ? "Creating..." : "Approve & create file"}</button></div></article>)}{chatBusy && <div className="chat-thinking"><span/><span/><span/> Contacting provider...</div>}</div>}<div className="command-composer"><div className="composer-label"><span><i/> TRANSMIT A TASK</span><small>{mode === "agent" ? "AGENT CHANNEL" : "CHAT CHANNEL"}</small></div><div className="composer"><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {if(event.key === "Enter" && !event.shiftKey){event.preventDefault();sendMessage();}}} placeholder="Describe what you want to build, investigate, or understand..." rows={2}/><div className="composer-bottom"><details className="custom-dropdown mode-dropdown"><summary className={mode === "agent" ? "mode active" : "mode"}><Bot size={14}/> {mode === "agent" ? "Agent mode" : "Chat mode"} <ChevronDown size={12}/></summary><div className="dropdown-menu"><button onClick={event => {setMode("agent");event.currentTarget.closest("details")?.removeAttribute("open");}}>Agent mode <small>Plan and act with approvals</small></button><button onClick={event => {setMode("chat");event.currentTarget.closest("details")?.removeAttribute("open");}}>Chat mode <small>Discuss without editing files</small></button></div></details><small>{chatBusy ? "WAITING FOR PROVIDER" : "SHIFT + ENTER FOR NEW LINE"}</small><button className="send" disabled={!draft.trim() || chatBusy} onClick={sendMessage} aria-label="Send message"><Send size={15}/></button></div></div><div className="composer-caption"><Shield size={11}/> Actions remain under your control <i>·</i> API usage billed separately by DeepSeek</div></div>
         </section>)}
         {page === "settings" && <section className="settings-view"><div className="eyebrow">PREFERENCES / SYSTEM CONFIGURATION</div><h1>Settings</h1><p className="page-description">Configure your provider, permissions, workspace, and interface.</p><div className="settings-grid"><nav><button className={settingsSection === "provider" ? "selected" : ""} onClick={() => setSettingsSection("provider")}><KeyRound size={15}/> AI provider</button><button className={settingsSection === "permissions" ? "selected" : ""} onClick={() => setSettingsSection("permissions")}><Shield size={15}/> Permissions</button><button className={settingsSection === "workspace" ? "selected" : ""} onClick={() => setSettingsSection("workspace")}><Folder size={15}/> Workspace</button><button className={settingsSection === "appearance" ? "selected" : ""} onClick={() => setSettingsSection("appearance")}><Moon size={15}/> Appearance</button></nav><div className="settings-main">
           {settingsSection === "provider" && <><article className="settings-card"><div className="settings-heading"><div><h3>OpenAI-compatible provider</h3><p>Connect DeepSeek, OpenRouter, or another provider with a compatible API.</p></div><small className={providerStatus.includes("failed") ? "connection-bad" : "connection-state"}>● {providerStatus}</small></div><label>API base URL</label><input value={endpoint} onChange={event => setEndpoint(event.target.value)} placeholder="https://openrouter.ai/api/v1" spellCheck={false}/><p className="field-help">Use the provider's API base URL, not its website URL. DeepSea appends /models and /chat/completions automatically.</p><label>API key</label><input type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} placeholder="Paste your provider API key" autoComplete="off"/><p className="field-help">Keys are stored in Windows Credential Manager. They are not saved in browser storage or committed to your project.</p><div className="settings-actions"><button className="primary" disabled={providerBusy} onClick={saveProvider}><Check size={14}/>{providerBusy ? "Working..." : "Save provider"}</button><button className="secondary" disabled={providerBusy} onClick={discoverModels}><Activity size={14}/> Discover models</button><button className="text-button danger-text" disabled={providerBusy} onClick={clearProviderKey}>Clear saved key</button></div></article><article className="settings-card"><div className="settings-heading"><div><h3>Available models</h3><p>Retrieved live from your provider. No built-in model catalog.</p></div><small>{providerModels.length} discovered</small></div>{providerModels.length ? <><label>Active model</label><select value={model} onChange={event => {setModel(event.target.value);localStorage.setItem("deepsea-provider-model",event.target.value);}}>{providerModels.map(item => <option key={item.id} value={item.id}>{item.id} · {item.cost === "free" ? "FREE" : item.cost === "paid" ? "PAID" : "COST UNKNOWN"}</option>)}</select><div className="model-summary"><b>{providerModels.filter(item => item.free).length} confirmed free models</b><span>Free status is based on provider pricing metadata or an explicit free model identifier. Unknown means the provider did not expose pricing.</span></div></> : <div className="settings-empty"><Sparkles size={19}/><b>No model catalog loaded</b><span>Save your provider credentials, then discover models to retrieve the live catalog and detect free options.</span></div>}</article></>}
