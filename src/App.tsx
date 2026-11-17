@@ -43,11 +43,28 @@ export default function App() {
   const dirty = fileContent !== savedContent;
 
   useEffect(() => {
-    const savedEndpoint = localStorage.getItem("deepsea-provider-endpoint");
+    const savedEndpoint = localStorage.getItem("deepsea-provider-endpoint") || "https://api.deepseek.com";
     const savedModel = localStorage.getItem("deepsea-provider-model");
-    if (savedEndpoint) setEndpoint(savedEndpoint);
+    setEndpoint(savedEndpoint);
     if (savedModel) setModel(savedModel);
-    invoke<boolean>("provider_key_exists").then(exists => setProviderStatus(exists ? "API key stored securely" : "Not connected")).catch(() => setProviderStatus("Credential store unavailable"));
+    invoke<boolean>("provider_key_exists").then(async exists => {
+      setProviderStatus(exists ? "API key stored securely · checking models" : "Not connected");
+      if (!exists) return;
+      try {
+        const found = await invoke<ProviderModel[]>("discover_provider_models", { endpoint: savedEndpoint });
+        setProviderModels(found);
+        const freeModel = found.find(item => item.free);
+        if (freeModel) {
+          setModel(freeModel.id);
+          localStorage.setItem("deepsea-provider-model", freeModel.id);
+          setProviderStatus(`${found.length} models found · free model selected`);
+        } else {
+          setProviderStatus(`${found.length} models found · no confirmed free model`);
+        }
+      } catch {
+        setProviderStatus("API key stored securely · model discovery unavailable");
+      }
+    }).catch(() => setProviderStatus("Credential store unavailable"));
   }, []);
 
   const refreshWorkspace = async (path: string) => {
