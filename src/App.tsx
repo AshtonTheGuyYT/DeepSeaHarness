@@ -214,12 +214,11 @@ export default function App() {
       }
       const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\bfile\b|\.[a-zA-Z0-9]{1,12}\b/i.test(prompt);
       if (mode === "agent" && (workspace || allowFullAccess) && proposals.length === 0 && looksLikeFileRequest) {
+        const explicitAbsolutePath = allowFullAccess ? prompt.match(/[A-Za-z]:[\\/][^\r\n"'<>|?*]*\.[a-zA-Z0-9]{1,12}/)?.[0]?.trim().replace(/[.,;:)]+$/, "") : undefined;
         const filenameMatch = prompt.match(/(?:named|called|name it|file name(?:d)?)\s+["']?([^"'\u0060\r\n]+?\.[a-zA-Z0-9]{1,12})["']?/i) || prompt.match(/["']([^"'\r\n]+?\.[a-zA-Z0-9]{1,12})["']/);
-        if (filenameMatch) {
-          const requestedName = filenameMatch[1].trim();
-          const targetPath = allowFullAccess && /[A-Za-z]:[\\/]/.test(prompt)
-            ? (prompt.match(/[A-Za-z]:[\\/][^"'\r\n]+/)?.[0]?.trim() || requestedName)
-            : requestedName;
+        if (filenameMatch || explicitAbsolutePath) {
+          const requestedName = filenameMatch?.[1].trim() || explicitAbsolutePath?.split(/[\\/]/).pop() || "new-file.txt";
+          const targetPath = explicitAbsolutePath || requestedName;
           const contentPrompt = [
             { role: "system", content: "Generate the complete contents for one new file. Return only the raw file contents. Do not include markdown fences, explanations, placeholders, filenames, or approval text. Follow the user's requested content exactly." },
             ...nextMessages,
