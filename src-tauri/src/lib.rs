@@ -225,6 +225,73 @@ fn create_workspace_file(path: String, relative_path: String, content: String) -
 }
 
 #[tauri::command]
+fn create_file_at_path(target_path: String, content: String, allow_full_access: bool, workspace: Option<String>) -> Result<String, String> {
+    if content.len() > 1_048_576 {
+        return Err("The proposed file exceeds the 1 MB creation limit.".to_string());
+    }
+    let requested = PathBuf::from(target_path.trim());
+    let file_path = if requested.is_absolute() {
+        if !allow_full_access {
+            return Err("Enable expanded filesystem access in Settings before creating files outside the mounted workspace.".to_string());
+        }
+        if !requested.components().all(|part| matches!(part, std::path::Component::Prefix(_) | std::path::Component::RootDir | std::path::Component::Normal(_))) {
+            return Err("The absolute destination contains an unsafe path component.".to_string());
+        }
+        let lexical = requested.to_string_lossy().replace('/', "\\").to_lowercase();
+        if !lexical.starts_with("c:\\") {
+            return Err("Expanded access is currently limited to the C: drive.".to_string());
+        }
+        for protected in ["c:\\windows", "c:\\program files", "c:\\program files (x86)", "c:\\programdata"] {
+            if lexical == protected || lexical.starts_with(&format!("{protected}\\")) {
+                return Err("DeepSea cannot create files inside protected Windows or application installation folders.".to_string());
+            }
+        }
+        let parent = requested.parent().ok_or_else(|| "Choose a destination folder for the file.".to_string())?;
+        fs::create_dir_all(parent).map_err(|error| format!("Unable to create destination folders: {error}"))?;
+        let canonical_parent = parent.canonicalize().map_err(|error| format!("Unable to resolve destination folder: {error}"))?;
+        let canonical_text = canonical_parent.to_string_lossy().replace('/', "\\").to_lowercase();
+        if !canonical_text.starts_with("c:\\") {
+            return Err("The resolved destination is outside the permitted C: drive.".to_string());
+        }
+        for protected in ["c:\\windows", "c:\\program files", "c:\\program files (x86)", "c:\\programdata"] {
+            if canonical_text == protected || canonical_text.starts_with(&format!("{protected}\\")) {
+                return Err("The resolved destination is inside a protected Windows or application installation folder.".to_string());
+            }
+        }
+        canonical_parent.join(requested.file_name().ok_or_else(|| "A file name is required.".to_string())?)
+    } else {
+        let root = workspace_root(workspace.as_deref().ok_or_else(|| "Choose a workspace before creating a relative file path.".to_string())?)?;
+        let relative = requested.as_path();
+        if relative.as_os_str().is_empty() || relative.components().any(|part| !matches!(part, std::path::Component::Normal(_))) {
+            return Err("Use a relative file path inside the selected workspace.".to_string());
+        }
+        let components = relative.components().collect::<Vec<_>>();
+        let mut parent = root;
+        for component in components.iter().take(components.len().saturating_sub(1)) {
+            parent.push(component.as_os_str());
+            match fs::symlink_metadata(&parent) {
+                Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => return Err("The destination contains an unsafe or non-directory component.".to_string()),
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => fs::create_dir(&parent).map_err(|create_error| format!("Unable to create parent folder: {create_error}"))?,
+                Err(error) => return Err(format!("Unable to inspect destination folder: {error}")),
+            }
+        }
+        parent.join(components.last().ok_or_else(|| "A file name is required.".to_string())?.as_os_str())
+    };
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    use std::io::Write;
+    let mut file = options.open(&file_path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists { "A file or folder with that name already exists. Nothing was overwritten.".to_string() } else { format!("Unable to create file: {error}") }
+    })?;
+    file.write_all(content.as_bytes()).map_err(|error| {
+        let _ = fs::remove_file(&file_path);
+        format!("Unable to write the new file: {error}")
+    })?;
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn write_workspace_file(path: String, relative_path: String, content: String) -> Result<(), String> {
     let root = workspace_root(&path)?;
     let file = safe_child(&root, &relative_path)?;
@@ -245,7 +312,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file, create_workspace_file,
+            list_workspace, list_workspace_tree, read_workspace_file, write_workspace_file, create_workspace_file, create_file_at_path,
             canonicalize_workspace_child, provider_key_exists, save_provider_key, discover_provider_models, send_provider_message
         ])
         .run(tauri::generate_context!())
