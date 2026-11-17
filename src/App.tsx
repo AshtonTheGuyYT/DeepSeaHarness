@@ -207,19 +207,19 @@ export default function App() {
         ...nextMessages
       ];
       const answer = await invoke<string>("send_provider_message", { endpoint, model, messages: providerMessages });
-      const filePattern = /\\[\\[DEEPSEA_FILE path="([^"]+)"\\]\\]([\\s\\S]*?)\\[\\[\\/DEEPSEA_FILE\\]\\]/g;
+      const filePattern = /\[\[DEEPSEA_FILE path="([^"]+)"\]\]([\s\S]*?)\[\[\/DEEPSEA_FILE\]\]/g;
       const proposals: PendingFile[] = [];
       let match: RegExpExecArray | null;
       while ((match = filePattern.exec(answer)) !== null) {
-        proposals.push({ id: Date.now() + "-" + proposals.length + "-" + Math.random().toString(36).slice(2, 8), path: match[1].trim(), content: match[2].replace(/^\\r?\\n/, "").replace(/\\r?\\n$/, "") });
+        proposals.push({ id: Date.now() + "-" + proposals.length + "-" + Math.random().toString(36).slice(2, 8), path: match[1].trim(), content: match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "") });
       }
-      const looksLikeFileRequest = /\\b(create|make|generate|write|save|build)\\b/i.test(prompt) && /\\b(file|\\.html|\\.txt|\\.json|\\.js|\\.ts|\\.css|\\.py|\\.lua|\\.java|\\.kt|\\.gradle)\\b/i.test(prompt);
+      const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\b(file|\.html|\.txt|\.json|\.js|\.ts|\.css|\.py|\.lua|\.java|\.kt|\.gradle)\b/i.test(prompt);
       if (mode === "agent" && workspace && proposals.length === 0 && looksLikeFileRequest) {
-        const filenameMatch = prompt.match(/(?:named|called|name it|file name(?:d)?)\\s+["'`]?([^"'\\u0060\\r\\n]+?\\.[a-zA-Z0-9]{1,12})["'`]?/i) || prompt.match(/["'`]([^"'`\\r\\n]+?\\.[a-zA-Z0-9]{1,12})["'`]/);
+        const filenameMatch = prompt.match(/(?:named|called|name it|file name(?:d)?)\s+["']?([^"'\u0060\r\n]+?\.[a-zA-Z0-9]{1,12})["']?/i) || prompt.match(/["']([^"'\r\n]+?\.[a-zA-Z0-9]{1,12})["']/);
         if (filenameMatch) {
           const requestedName = filenameMatch[1].trim();
-          const targetPath = allowFullAccess && /[A-Za-z]:[\\\\/]/.test(prompt)
-            ? (prompt.match(/[A-Za-z]:[\\\\/][^"'\\r\\n]+/)?.[0]?.trim() || requestedName)
+          const targetPath = allowFullAccess && /[A-Za-z]:[\\/]/.test(prompt)
+            ? (prompt.match(/[A-Za-z]:[\\/][^"'\r\n]+/)?.[0]?.trim() || requestedName)
             : requestedName;
           const contentPrompt = [
             { role: "system", content: "Generate the complete contents for one new file. Return only the raw file contents. Do not include markdown fences, explanations, placeholders, filenames, or approval text. Follow the user's requested content exactly." },
@@ -227,7 +227,7 @@ export default function App() {
             { role: "user", content: "Create the complete contents for the file " + requestedName + ". Return only its contents." }
           ];
           const generated = await invoke<string>("send_provider_message", { endpoint, model, messages: contentPrompt });
-          const cleanContent = generated.replace(/^\\s*```[a-zA-Z0-9_-]*\\s*\\n?/, "").replace(/\\n?```\\s*$/, "").trim();
+          const cleanContent = generated.replace(/^\s*[a-zA-Z0-9_-]*\s*\n?/, "").replace(/\n?\s*$/, "").trim();
           if (cleanContent) proposals.push({ id: Date.now() + "-fallback", path: targetPath, content: cleanContent });
         }
       }
