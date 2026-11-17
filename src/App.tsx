@@ -200,7 +200,7 @@ export default function App() {
       const scopeDescription = allowFullAccess
         ? "Expanded filesystem access is enabled. You may propose an absolute Windows path on the C: drive when the user specifies a location outside the mounted workspace. For a relative path, use the mounted workspace. Never target Windows system folders, Program Files, or ProgramData."
         : "You are restricted to the mounted workspace. Use only a relative path inside that workspace. If the user requests a location outside it, ask them to enable expanded filesystem access in Settings.";
-      const agentInstructions = "You are DeepSea, a careful software development agent. When asked to create a file, output its complete contents using exactly this format and nothing else except a short introduction: [[DEEPSEA_FILE path=\"relative/path.ext\"]] then a newline, the complete raw file contents, a newline, then [[/DEEPSEA_FILE]]. If expanded access is enabled and the user specifies a location outside the workspace, path may be an absolute C:\\Users\\... path. Do not output placeholders, explanations instead of the file, or markdown fences around the markers. One block per file. Never claim a file was saved; it is only a proposal until the user approves it. " + scopeDescription + " Mounted workspace: " + (workspace || "NONE - ask the user to choose a folder first") + ".";
+      const agentInstructions = "You are DeepSea, a careful software development agent. When asked to create a file, output its complete contents using exactly this format and nothing else except a short introduction: [[DEEPSEA_FILE path=\"relative/path.ext\"]] then a newline, the complete raw file contents, a newline, then [[/DEEPSEA_FILE]]. If expanded access is enabled and the user specifies a location outside the workspace, path may be an absolute C:\\Users\\... path. Do not output placeholders, explanations instead of the file, or markdown fences around the markers. One block per file. Never claim a file was saved; it is only a proposal until the user approves it. " + scopeDescription + " Mounted workspace: " + (workspace || "NONE") + ". If expanded filesystem access is enabled and the user supplies an absolute C: drive destination, no workspace is required. Preserve the exact destination path the user supplied." ;
       const providerMessages = [
         { role: "system", content: mode === "agent" ? agentInstructions : "You are DeepSea, a helpful software development assistant. Explain code clearly. Do not prepare filesystem actions in chat mode." },
         ...(allowFileReads && workspace ? [{ role: "system", content: "Mounted workspace entries: " + tree.map(entry => entry.relative_path + (entry.is_dir ? "/" : "")).join(", ") + (activeFile ? ". Open file " + activeFile + " contents:\n" + fileContent : "") }] : []),
@@ -214,7 +214,7 @@ export default function App() {
         proposals.push({ id: Date.now() + "-" + proposals.length + "-" + Math.random().toString(36).slice(2, 8), path: match[1].trim(), content: match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "") });
       }
       const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\bfile\b|\.[a-zA-Z0-9]{1,12}\b/i.test(prompt);
-      if (mode === "agent" && workspace && proposals.length === 0 && looksLikeFileRequest) {
+      if (mode === "agent" && (workspace || allowFullAccess) && proposals.length === 0 && looksLikeFileRequest) {
         const filenameMatch = prompt.match(/(?:named|called|name it|file name(?:d)?)\s+["']?([^"'\u0060\r\n]+?\.[a-zA-Z0-9]{1,12})["']?/i) || prompt.match(/["']([^"'\r\n]+?\.[a-zA-Z0-9]{1,12})["']/);
         if (filenameMatch) {
           const requestedName = filenameMatch[1].trim();
@@ -231,7 +231,7 @@ export default function App() {
           if (cleanContent) proposals.push({ id: Date.now() + "-fallback", path: targetPath, content: cleanContent });
         }
       }
-      if (proposals.length && mode === "agent" && workspace) {
+      if (proposals.length && mode === "agent" && (workspace || allowFullAccess)) {
         setPendingFiles(current => [...current, ...proposals]);
         setMessages(nextMessages);
       } else {
@@ -245,11 +245,11 @@ export default function App() {
   };
 
   const approveFile = async (proposal: PendingFile) => {
-    if (!workspace || fileActionBusy) return;
+    if ((!workspace && !allowFullAccess) || fileActionBusy) return;
     setFileActionBusy(proposal.id);
     try {
       const createdPath = await invoke<string>("create_file_at_path", { targetPath: proposal.path, content: proposal.content, allowFullAccess, workspace: workspace || null });
-      await refreshWorkspace(workspace);
+      if (workspace) await refreshWorkspace(workspace);
       setPendingFiles(current => current.filter(item => item.id !== proposal.id));
       setNotice("Created " + proposal.path + " in your workspace.");
       setMessages(current => [...current, { role: "assistant", content: "File created successfully: " + createdPath }]);
