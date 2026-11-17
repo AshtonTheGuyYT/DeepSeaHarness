@@ -264,6 +264,7 @@ export default function App() {
       }
       if (proposals.length && mode === "agent" && (workspace || allowFullAccess)) {
         setPendingFiles(current => [...current, ...proposals]);
+        if (commandProposals.length && workspace) setPendingCommands(current => [...current, ...commandProposals]);
         setMessages(nextMessages);
       } else if (commandProposals.length && mode === "agent" && workspace) {
         setPendingCommands(current => [...current, ...commandProposals]);
