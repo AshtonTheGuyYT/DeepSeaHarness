@@ -74,7 +74,7 @@ async fn run_workspace_command(command: String, workspace: String) -> Result<Com
         return Err("This command is not in DeepSea's approved command set. Supported tools include npm, node, Python, Cargo, Git, and basic workspace commands.".to_string());
     }
     let lower = trimmed.to_ascii_lowercase();
-    if lower.contains("..") || lower.contains(":\\\\") || lower.contains("\\\\") {
+    if lower.contains("..") || lower.contains(r":\") || lower.contains(r"\\") {
         return Err("Command arguments must stay within the mounted project and cannot use absolute paths or parent-directory traversal.".to_string());
     }
     let blocked = ["format c:", "del /s", "del /q", "rmdir /s", "rd /s", "shutdown", "reg delete", "diskpart", "cipher /w", "takeown", "icacls", "powershell", "pwsh", "cmd.exe", "start-process", "invoke-expression"];
