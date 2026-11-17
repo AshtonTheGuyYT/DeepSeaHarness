@@ -48,7 +48,7 @@ fn http_client() -> Result<reqwest::Client, String> {
 
 #[tauri::command]
 fn provider_key_exists() -> bool {
-    credential_entry().and_then(|entry| entry.get_password().map(|_| entry)).is_ok()
+    credential_entry().and_then(|entry| entry.get_password().map(|_| entry).map_err(|error| error.to_string())).is_ok()
 }
 
 #[tauri::command]
