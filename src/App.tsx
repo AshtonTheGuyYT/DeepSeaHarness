@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, ArrowRight, ArrowUpRight, Bot, Check, ChevronDown, CircleHelp, Code2, FileCode2, Folder, FolderOpen, Github, History, KeyRound, LayoutDashboard, Menu, Moon, PanelRightClose, Plus, Search, Send, Settings2, Shield, Sparkles, Waves, X, Save, RotateCcw } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -56,6 +56,7 @@ export default function App() {
   const [clock24, setClock24] = useState(localStorage.getItem("deepsea-clock-24h") === "true");
   const [openAppMenu, setOpenAppMenu] = useState<"application" | "edit" | null>(null);
   const [maximized, setMaximized] = useState(false);
+  const lastEditable = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const dirty = fileContent !== savedContent;
 
   useEffect(() => {
@@ -118,16 +119,18 @@ export default function App() {
     if (action === "paste") {
       try {
         const clipboardText = await navigator.clipboard.readText();
-        const active = document.activeElement;
-        if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+        const focused = document.activeElement;
+        const active = focused instanceof HTMLTextAreaElement || focused instanceof HTMLInputElement ? focused : lastEditable.current;
+        if (active) {
           const start = active.selectionStart ?? active.value.length;
           const end = active.selectionEnd ?? start;
+          active.focus();
           active.setRangeText(clipboardText, start, end, "end");
           active.dispatchEvent(new Event("input", { bubbles: true }));
           if (active.classList.contains("code-editor")) setFileContent(active.value);
           if (active.closest(".composer")) setDraft(active.value);
         } else {
-          document.execCommand("paste");
+          setNotice("Focus a text field before using Paste.");
         }
       } catch {
         setNotice("Clipboard access was unavailable. Focus a text field and use Ctrl + V instead.");
@@ -135,11 +138,23 @@ export default function App() {
       return;
     }
     const commands: Record<string, string> = { undo: "undo", redo: "redo", cut: "cut", copy: "copy", delete: "delete", selectAll: "selectAll" };
-    const active = document.activeElement;
-    if (action === "delete" && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement)) {
+    const focused = document.activeElement;
+    const active = focused instanceof HTMLTextAreaElement || focused instanceof HTMLInputElement ? focused : lastEditable.current;
+    if (active && ["cut", "copy", "delete", "selectAll"].includes(action)) {
+      active.focus();
+      if (action === "selectAll") {
+        active.select();
+        return;
+      }
       const start = active.selectionStart ?? 0;
       const end = active.selectionEnd ?? start;
-      if (start !== end) {
+      if (start === end) return;
+      const selected = active.value.slice(start, end);
+      if (action === "copy" || action === "cut") {
+        try { await navigator.clipboard.writeText(selected); }
+        catch { setNotice("Clipboard access was unavailable. Use the standard keyboard shortcut instead."); return; }
+      }
+      if (action === "cut" || action === "delete") {
         active.setRangeText("", start, end, "end");
         active.dispatchEvent(new Event("input", { bubbles: true }));
         if (active.classList.contains("code-editor")) setFileContent(active.value);
@@ -147,6 +162,7 @@ export default function App() {
       }
       return;
     }
+    if (active && (action === "undo" || action === "redo")) active.focus();
     document.execCommand(commands[action] || action);
   };
 
@@ -457,7 +473,7 @@ export default function App() {
 
   const messageComposer = (<div className="command-composer"><div className="composer-label"><span><i/> TRANSMIT A TASK</span><small>{mode === "agent" ? "AGENT CHANNEL" : "CHAT CHANNEL"}</small></div><div className="composer"><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {if(event.key === "Enter" && !event.shiftKey){event.preventDefault();sendMessage();}}} placeholder="Describe what you want to build, investigate, or understand..." rows={2}/><div className="composer-bottom"><details className="custom-dropdown mode-dropdown"><summary className={mode === "agent" ? "mode active" : "mode"}><Bot size={14}/> {mode === "agent" ? "Agent mode" : "Chat mode"} <ChevronDown size={12}/></summary><div className="dropdown-menu"><button onClick={event => {setMode("agent");event.currentTarget.closest("details")?.removeAttribute("open");}}>Agent mode <small>Plan and act with approvals</small></button><button onClick={event => {setMode("chat");event.currentTarget.closest("details")?.removeAttribute("open");}}>Chat mode <small>Discuss without editing files</small></button></div></details><small>{chatBusy ? "WAITING FOR PROVIDER" : "SHIFT + ENTER FOR NEW LINE"}</small><button className="send" disabled={!draft.trim() || chatBusy} onClick={sendMessage} aria-label="Send message"><Send size={15}/></button></div></div><div className="composer-caption"><Shield size={11}/> Actions remain under your control <i>·</i> API usage billed separately by DeepSeek</div></div>);
 
-  return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); if (!(event.target as HTMLElement).closest(".app-menu-group")) setOpenAppMenu(null); }}>
+  return <div className={`app-shell ${compactMode ? "compact-ui" : ""} ${reduceMotion ? "reduced-motion" : ""}`} onFocusCapture={event => { const target = event.target; if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) lastEditable.current = target; }} onClick={event => { if (!(event.target as HTMLElement).closest(".custom-dropdown")) document.querySelectorAll(".custom-dropdown[open]").forEach(menu => menu.removeAttribute("open")); if (!(event.target as HTMLElement).closest(".app-menu-group")) setOpenAppMenu(null); }}>
     <header className="app-menu-bar">
       <div className="app-menu-leading app-menu-group">
         <button className="app-menu-icon" onClick={() => setSidebar(current => !current)} title={sidebar ? "Hide sidebar" : "Show sidebar"} aria-label="Toggle sidebar"><Menu size={16}/></button>
