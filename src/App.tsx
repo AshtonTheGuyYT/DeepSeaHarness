@@ -58,6 +58,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("deepsea-conversations", JSON.stringify(conversations));
     if (activeConversation) localStorage.setItem("deepsea-active-conversation", activeConversation);
+    else localStorage.removeItem("deepsea-active-conversation");
   }, [conversations, activeConversation]);
 
   useEffect(() => {
@@ -72,6 +73,27 @@ export default function App() {
       return [next, ...current.filter(item => item.id !== id)].slice(0, 100);
     });
   }, [messages, activeConversation]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        const id = crypto.randomUUID();
+        setConversations(current => [{ id, title: "New conversation", messages: [], updatedAt: Date.now() }, ...current]);
+        setActiveConversation(id);
+        setPage("workspace");
+        setActiveFile("");
+        setMessages([]);
+        setPendingFiles([]);
+        setPendingCommands([]);
+        setCommandRuns([]);
+        setDraft("");
+        setNotice("");
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   useEffect(() => {
     const clockInterval = window.setInterval(() => setClockTime(new Date()), 1000);
