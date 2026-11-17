@@ -1,5 +1,7 @@
 # DeepSea Harness
 
+[![Windows CI](https://github.com/AshtonTheGuyYT/DeepSeaHarness/actions/workflows/ci.yml/badge.svg)](https://github.com/AshtonTheGuyYT/DeepSeaHarness/actions/workflows/ci.yml)
+
 DeepSea Harness is an open-source Windows desktop coding workspace being built around the official DeepSeek API. It uses Tauri 2, Rust, React, TypeScript, and Vite.
 
 > Status: early development (0.1.0). This is an active foundation, not yet a complete AI coding agent. Provider streaming, credential vault integration, SQLite history, file editing, permission approvals, and terminal execution are not implemented yet.
