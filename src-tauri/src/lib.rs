@@ -29,8 +29,8 @@ fn load_api_key() -> Result<String, String> {
 fn normalized_base(endpoint: &str) -> Result<String, String> {
     let trimmed = endpoint.trim().trim_end_matches('/');
     let parsed = reqwest::Url::parse(trimmed).map_err(|_| "Enter a valid provider URL, including https://".to_string())?;
-    if parsed.scheme() != "https" && parsed.scheme() != "http" {
-        return Err("Provider URLs must use HTTPS or HTTP.".to_string());
+    if parsed.scheme() != "https" && !(parsed.scheme() == "http" && matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"))) {
+        return Err("Provider URLs must use HTTPS. HTTP is only allowed for localhost development servers.".to_string());
     }
     if parsed.host_str().is_none() {
         return Err("The provider URL must include a hostname.".to_string());
@@ -78,8 +78,8 @@ async fn discover_provider_models(endpoint: String) -> Result<Vec<ProviderModel>
     let mut models = items.iter().filter_map(|item| {
         let id = item.get("id").or_else(|| item.get("name")).and_then(Value::as_str)?.to_string();
         let pricing = item.get("pricing");
-        let prompt = pricing.and_then(|value| value.get("prompt")).and_then(|value| value.as_str().or_else(|| value.as_number().map(|_| ""))).and_then(|value| value.parse::<f64>().ok());
-        let completion = pricing.and_then(|value| value.get("completion")).and_then(|value| value.as_str().or_else(|| value.as_number().map(|_| ""))).and_then(|value| value.parse::<f64>().ok());
+        let prompt = pricing.and_then(|value| value.get("prompt")).and_then(|value| value.as_f64().or_else(|| value.as_str().and_then(|text| text.parse::<f64>().ok())));
+        let completion = pricing.and_then(|value| value.get("completion")).and_then(|value| value.as_f64().or_else(|| value.as_str().and_then(|text| text.parse::<f64>().ok())));
         let free = id.to_lowercase().ends_with(":free") || matches!((prompt, completion), (Some(a), Some(b)) if a == 0.0 && b == 0.0);
         let cost = if free { "free" } else if prompt.is_some() && completion.is_some() { "paid" } else { "unknown" };
         Some(ProviderModel { id, cost: cost.to_string(), free })
