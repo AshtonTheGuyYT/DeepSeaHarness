@@ -213,7 +213,7 @@ export default function App() {
       while ((match = filePattern.exec(answer)) !== null) {
         proposals.push({ id: Date.now() + "-" + proposals.length + "-" + Math.random().toString(36).slice(2, 8), path: match[1].trim(), content: match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "") });
       }
-      const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\b(file|\.html|\.txt|\.json|\.js|\.ts|\.css|\.py|\.lua|\.java|\.kt|\.gradle)\b/i.test(prompt);
+      const looksLikeFileRequest = /\b(create|make|generate|write|save|build)\b/i.test(prompt) && /\bfile\b|\.[a-zA-Z0-9]{1,12}\b/i.test(prompt);
       if (mode === "agent" && workspace && proposals.length === 0 && looksLikeFileRequest) {
         const filenameMatch = prompt.match(/(?:named|called|name it|file name(?:d)?)\s+["']?([^"'\u0060\r\n]+?\.[a-zA-Z0-9]{1,12})["']?/i) || prompt.match(/["']([^"'\r\n]+?\.[a-zA-Z0-9]{1,12})["']/);
         if (filenameMatch) {
