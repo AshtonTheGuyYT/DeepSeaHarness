@@ -20,6 +20,7 @@ DeepSea Harness is an open-source Windows desktop coding workspace built with Ta
 - OpenAI-compatible non-streaming `/chat/completions` requests
 - Optional project file/tree context supplied to the model when project reading is enabled
 - AI-generated new-file proposals with a preview and explicit approval before creation
+- Optional expanded C: drive destination access for AI-created files, with protected system/application folders blocked
 - Safe creation of new files and missing parent folders inside the selected workspace, without overwriting existing items
 - Settings for project reading, approval preference, compact layout, and reduced motion
 
