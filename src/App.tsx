@@ -149,8 +149,8 @@ export default function App() {
       const found = await invoke<ProviderModel[]>("discover_provider_models", { endpoint });
       setProviderModels(found);
       const freeModel = found.find(item => item.free);
-      if (freeModel) setModel(freeModel.id);
-      else if (found.length && !found.some(item => item.id === model)) setModel(found[0].id);
+      if (freeModel) { setModel(freeModel.id); localStorage.setItem("deepsea-provider-model", freeModel.id); }
+      else if (found.length && !found.some(item => item.id === model)) { setModel(found[0].id); localStorage.setItem("deepsea-provider-model", found[0].id); }
       localStorage.setItem("deepsea-provider-endpoint", endpoint.trim());
       if (apiKey.trim()) setApiKey("");
       setProviderStatus(found.some(item => item.free) ? `${found.length} models found · free model detected` : `${found.length} models found · no confirmed free model`);
@@ -167,6 +167,7 @@ export default function App() {
     setProviderBusy(true);
     try {
       await invoke("save_provider_key", { apiKey: "" });
+      setApiKey("");
       setProviderStatus("Saved API key cleared");
       setNotice("Saved API key cleared from Windows Credential Manager.");
     } catch (error) {
